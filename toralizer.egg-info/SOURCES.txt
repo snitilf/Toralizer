@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+setup.py
+tests/__init__.py
+tests/test_toralizer.py
+toralizer/__init__.py
+toralizer/__main__.py
+toralizer/cli.py
+toralizer/toralizer.py
+toralizer/utils.py
+toralizer.egg-info/PKG-INFO
+toralizer.egg-info/SOURCES.txt
+toralizer.egg-info/dependency_links.txt
+toralizer.egg-info/entry_points.txt
+toralizer.egg-info/requires.txt
+toralizer.egg-info/top_level.txt

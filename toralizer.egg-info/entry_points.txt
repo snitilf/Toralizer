@@ -1,0 +1,2 @@
+[console_scripts]
+toralize = toralizer.cli:main

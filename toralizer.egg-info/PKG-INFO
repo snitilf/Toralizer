@@ -1,0 +1,11 @@
+Metadata-Version: 2.2
+Name: toralizer
+Version: 0.1.0
+Summary: A command line tool to redirect network traffic through Tor
+Author: Your Name
+Requires-Dist: stem
+Requires-Dist: requests
+Requires-Dist: pysocks
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: summary
