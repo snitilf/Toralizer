@@ -14,6 +14,6 @@ setup(
             'toralize=toralizer.cli:main',
         ],
     },
-    author="Your Name",
+    author="Filip Snitil",
     description="A command line tool to redirect network traffic through Tor",
 )
