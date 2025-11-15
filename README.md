@@ -2,6 +2,8 @@
 
 command-line tool that intercepts network traffic from other programs and routes it through Tor. the application doesn't need to know it's being proxied - everything happens transparently at the system level.
 
+**quick start**: see `QUICKSTART.md` for 5-minute setup guide
+
 ## how it works
 
 uses the DYLD_INSERT_LIBRARIES technique on macOS (like LD_PRELOAD on Linux) to intercept connect() system calls and redirect them through Tor's SOCKS proxy.
@@ -50,35 +52,47 @@ basic syntax:
 ./toralize <command> [args...]
 ```
 
-examples:
+quick examples:
 
 ```bash
-# check your real IP
-curl http://ipinfo.io/ip
-
-# check your IP through Tor
+# check your IP through tor
 ./toralize curl http://ipinfo.io/ip
 
-# ssh through Tor
-./toralize ssh user@example.com
+# run custom programs through tor
+./toralize ./test_http
 
-# download files through Tor
-./toralize wget http://example.com/file.txt
+# use with homebrew binaries
+./toralize /opt/homebrew/bin/curl https://example.com
 ```
 
-quick test:
+for detailed usage guide with real-world examples, see:
+- **USAGE.md** - comprehensive guide with 10+ use cases
+- **examples/** - ready-to-run example scripts
+
+quick tests:
 
 ```bash
+# verify everything works
 make test
+
+# or run example scripts
+cd examples
+./check-ip.sh
+./test-anonymity.sh
 ```
 
 ## project structure
 
 ```
-toralize.h        - SOCKS4 protocol definitions
+toralize.h        - socks4 protocol definitions
 toralize.c        - connect() interception implementation
-Makefile          - build configuration
+toralize.dylib    - compiled dynamic library
 toralize          - wrapper script
+Makefile          - build configuration
+USAGE.md          - comprehensive usage guide
+PHASES.md         - implementation tracking
+examples/         - practical example scripts
+tests/            - test suites for all phases
 ```
 
 ## development
