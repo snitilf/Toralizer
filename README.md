@@ -21,6 +21,12 @@ brew install gcc make tor
 brew services start tor
 ```
 
+verify phase 0 setup (optional):
+
+```bash
+./tests/test_phase0.sh
+```
+
 then build the library:
 
 ```bash
