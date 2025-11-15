@@ -160,5 +160,5 @@ MIT
 
 ## author
 
-Filip Snitil
+filip snítil
 

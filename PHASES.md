@@ -1,6 +1,6 @@
 # toralizer development phases
 
-this document tracks the implementation phases of toralizer.
+this document tracks the implementation phases of Toralizer because i have a bad memory.
 
 ## phase 0: prerequisites & setup
 
