@@ -1,0 +1,36 @@
+IMPORTANT: example scripts and system integrity protection (sip)
+
+the example scripts (check-ip.sh, check-geo.sh, test-anonymity.sh) use curl
+to fetch data from the internet. however, if curl is located at /usr/bin/curl,
+it's protected by macOS system integrity protection and cannot be intercepted.
+
+WHY IT MATTERS:
+- test-with-binary.sh ALWAYS works (uses test_http, not sip-protected)
+- other scripts may NOT work if you only have system curl
+
+HOW TO FIX:
+install homebrew curl (not sip-protected):
+
+    brew install curl-openssl
+
+then the scripts will automatically detect and use it.
+
+VERIFY IT WORKS:
+    # should show DIFFERENT ips
+    /opt/homebrew/bin/curl http://ipinfo.io/ip
+    ../toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+
+PROOF TORALIZER WORKS:
+even without homebrew curl, you can prove toralizer works:
+
+    cd ..
+    ./toralize ./test_http
+
+if you see [toralize] messages, it's working!
+
+BOTTOM LINE:
+- toralizer itself works fine
+- the limitation is macOS security blocking system binaries
+- install homebrew curl to use all example scripts
+- or just use test-with-binary.sh which always works
+

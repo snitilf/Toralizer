@@ -7,14 +7,32 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# try to find a non-sip curl
+if [ -f "/opt/homebrew/bin/curl" ]; then
+    CURL="/opt/homebrew/bin/curl"
+elif [ -f "/usr/local/bin/curl" ]; then
+    CURL="/usr/local/bin/curl"
+else
+    echo -e "${YELLOW}warning: using system curl (protected by sip)${NC}"
+    echo "this test requires homebrew curl to work properly"
+    echo ""
+    echo "install it with:"
+    echo "  brew install curl-openssl"
+    echo ""
+    echo "or run ./test-with-binary.sh which uses test_http (not sip-protected)"
+    echo ""
+    exit 1
+fi
+
 echo "========================================"
 echo "toralizer anonymity test"
 echo "========================================"
+echo "using: $CURL"
 echo ""
 
 # test 1: get real ip
 echo "[1] getting your real ip address..."
-REAL_IP=$(curl -s http://ipinfo.io/ip 2>/dev/null)
+REAL_IP=$($CURL -s http://ipinfo.io/ip 2>/dev/null)
 if [ -z "$REAL_IP" ]; then
     echo -e "${RED}failed to get real ip${NC}"
     exit 1
@@ -24,7 +42,7 @@ echo ""
 
 # test 2: get tor ip
 echo "[2] getting tor exit node ip..."
-TOR_IP=$(../toralize curl -s http://ipinfo.io/ip 2>/dev/null)
+TOR_IP=$(../toralize $CURL -s http://ipinfo.io/ip 2>/dev/null)
 if [ -z "$TOR_IP" ]; then
     echo -e "${RED}failed to get tor ip${NC}"
     exit 1
@@ -49,7 +67,7 @@ echo ""
 echo "[4] testing multiple requests (checking for rotation)..."
 IPS=()
 for i in {1..3}; do
-    IP=$(../toralize curl -s http://ipinfo.io/ip 2>/dev/null)
+    IP=$(../toralize $CURL -s http://ipinfo.io/ip 2>/dev/null)
     IPS+=("$IP")
     echo "    request $i: $IP"
     sleep 2
