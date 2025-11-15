@@ -1,46 +1,46 @@
-# Makefile for Toralizer (macOS)
-# Builds a dynamic library (.dylib) that intercepts network connections
+# makefile for toralizer (macOS)
+# builds a dynamic library (.dylib) that intercepts network connections
 
-# Compiler and flags
+# compiler and flags
 CC = clang
 CFLAGS = -Wall -fPIC
 LDFLAGS = -dynamiclib
 
-# Target library name
+# target library name
 TARGET = toralize.dylib
 
-# Source files
+# source files
 SOURCES = toralize.c
 HEADERS = toralize.h
 
-# Build the dynamic library
+# build the dynamic library
 all: $(TARGET)
 
 $(TARGET): $(SOURCES) $(HEADERS)
-	@echo "Building Toralizer dynamic library..."
+	@echo "building toralizer dynamic library..."
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SOURCES)
-	@echo "✓ Built $(TARGET)"
+	@echo "built $(TARGET)"
 	@echo ""
-	@echo "Usage:"
+	@echo "usage:"
 	@echo "  ./toralize <command>"
 	@echo ""
-	@echo "Example:"
+	@echo "example:"
 	@echo "  ./toralize curl http://ipinfo.io/ip"
 
-# Clean build artifacts
+# clean build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
+	@echo "cleaning build artifacts..."
 	rm -f $(TARGET)
-	@echo "✓ Clean complete"
+	@echo "clean complete"
 
-# Test by showing your real IP vs Tor IP
+# test by showing your real ip vs tor ip
 test: $(TARGET)
-	@echo "Testing Toralizer..."
+	@echo "testing toralizer..."
 	@echo ""
-	@echo "Your real IP:"
+	@echo "your real ip:"
 	@curl -s http://ipinfo.io/ip
 	@echo ""
-	@echo "Your IP through Tor:"
+	@echo "your ip through tor:"
 	@./toralize curl -s http://ipinfo.io/ip
 	@echo ""
 

@@ -1,144 +1,129 @@
 # Toralizer
 
-A command-line tool written in C that intercepts network traffic from any other command-line program and automatically routes it through the Tor privacy network. This effectively masks your real IP address, and the application being used doesn't even need to be aware of it.
+command-line tool that intercepts network traffic from other programs and routes it through Tor. the application doesn't need to know it's being proxied - everything happens transparently at the system level.
 
-## 🚀 How It Works
+## how it works
 
-Toralizer uses the `DYLD_INSERT_LIBRARIES` technique on macOS (similar to `LD_PRELOAD` on Linux) to intercept `connect()` system calls and redirect them through Tor's SOCKS proxy using the SOCKS4 protocol.
+uses the DYLD_INSERT_LIBRARIES technique on macOS (like LD_PRELOAD on Linux) to intercept connect() system calls and redirect them through Tor's SOCKS proxy.
 
-## 📋 Prerequisites
+## prerequisites
 
 - macOS with Xcode Command Line Tools
-- Homebrew package manager
-- Tor service running (automatically installed and started during setup)
+- Homebrew
+- Tor (installed via brew)
 
-## 🛠️ Installation
+## installation
 
-### Phase 0: Setup (Completed ✓)
+first, install dependencies:
 
-All prerequisites have been installed:
-- ✓ Xcode Command Line Tools
-- ✓ gcc, make, and tor via Homebrew
-- ✓ Tor service started (listening on 127.0.0.1:9050)
-- ✓ Project structure created
+```bash
+brew install gcc make tor
+brew services start tor
+```
 
-### Build the Library
+then build the library:
 
 ```bash
 make
 ```
 
-This will compile `toralize.dylib`, the dynamic library that intercepts network connections.
+this compiles toralize.dylib which does the actual interception.
 
-## 📖 Usage
+## usage
 
-Run any command through Tor using the `toralize` wrapper script:
+basic syntax:
 
 ```bash
 ./toralize <command> [args...]
 ```
 
-### Examples
+examples:
 
-Check your real IP vs Tor IP:
 ```bash
-# Your real IP
+# check your real IP
 curl http://ipinfo.io/ip
 
-# Through Tor
+# check your IP through Tor
 ./toralize curl http://ipinfo.io/ip
-```
 
-SSH through Tor:
-```bash
+# ssh through Tor
 ./toralize ssh user@example.com
-```
 
-Download files through Tor:
-```bash
+# download files through Tor
 ./toralize wget http://example.com/file.txt
 ```
 
-### Quick Test
+quick test:
 
-Run the built-in test:
 ```bash
 make test
 ```
 
-This will show your real IP and then your IP through Tor.
-
-## 📁 Project Structure
+## project structure
 
 ```
-Toralizer/
-├── toralize.h        # Header file with SOCKS4 protocol definitions
-├── toralize.c        # Main implementation (connect() interception)
-├── Makefile          # Build configuration
-├── toralize          # Wrapper script to run commands through Tor
-└── README.md         # This file
+toralize.h        - SOCKS4 protocol definitions
+toralize.c        - connect() interception implementation
+Makefile          - build configuration
+toralize          - wrapper script
 ```
 
-## 🔧 Development
+## development
 
-### Clean Build Artifacts
+clean build artifacts:
 
 ```bash
 make clean
 ```
 
-### Rebuild Everything
+rebuild everything:
 
 ```bash
 make clean && make
 ```
 
-## 🔒 Security Notes
+## security notes
 
-- This tool routes TCP connections through Tor
+- only routes TCP connections through Tor
 - DNS requests may still leak (use Tor Browser for complete anonymity)
-- Some applications may not work correctly with intercepted connections
-- This is for educational purposes and legitimate privacy needs
+- some applications might not work correctly
+- for educational and legitimate privacy purposes only
 
-## 📝 Technical Details
+## technical details
 
-**SOCKS4 Protocol:**
-- Connect to Tor proxy at 127.0.0.1:9050
-- Send connection request with destination IP/port
-- Receive response (code 90 = granted)
-- Use `dup2()` to replace original socket with Tor-connected socket
+SOCKS4 protocol flow:
+1. connect to Tor proxy at 127.0.0.1:9050
+2. send connection request with destination IP/port
+3. receive response (code 90 means granted)
+4. use dup2() to replace original socket with Tor-connected socket
 
-**macOS-Specific:**
-- Uses `DYLD_INSERT_LIBRARIES` environment variable
-- Compiled as `.dylib` (dynamic library)
-- Uses `dlsym(RTLD_NEXT, "connect")` to get original function
+macOS specifics:
+- uses DYLD_INSERT_LIBRARIES environment variable
+- compiled as .dylib (dynamic library)
+- uses dlsym(RTLD_NEXT, "connect") to get the original function pointer
 
-## 🐛 Troubleshooting
+## troubleshooting
 
-**Library not found:**
+library not found:
 ```bash
 make
 ```
 
-**Tor not running:**
+tor not running:
 ```bash
 brew services start tor
 ```
 
-**Check Tor is listening:**
+check if tor is listening:
 ```bash
 lsof -i :9050
 ```
 
-## 📜 License
+## license
 
-MIT License - Feel free to use and modify
+MIT
 
-## 👤 Author
+## author
 
 Filip Snitil
-
----
-
-**Next Steps:** Ready for Phase 1 - Building and testing the SOCKS4 client!
 
