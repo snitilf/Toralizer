@@ -1,0 +1,23 @@
+# Compiled library
+*.dylib
+*.so
+*.o
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Build artifacts
+*.dSYM
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+test_output/
+

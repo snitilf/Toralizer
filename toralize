@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# toralize - Wrapper script to route any command through Tor
+#
+# Usage: ./toralize <command> [args...]
+# Example: ./toralize curl http://ipinfo.io/ip
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Path to the toralize.dylib library
+LIB_PATH="${SCRIPT_DIR}/toralize.dylib"
+
+# Check if the library exists
+if [ ! -f "$LIB_PATH" ]; then
+    echo "Error: toralize.dylib not found!"
+    echo "Please run 'make' first to build the library."
+    exit 1
+fi
+
+# Check if a command was provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <command> [args...]"
+    echo ""
+    echo "Example:"
+    echo "  $0 curl http://ipinfo.io/ip"
+    echo "  $0 ssh user@example.com"
+    echo "  $0 wget http://example.com"
+    exit 1
+fi
+
+# Export the DYLD_INSERT_LIBRARIES environment variable
+# This tells macOS to load our library before running the command
+export DYLD_INSERT_LIBRARIES="$LIB_PATH"
+
+# Execute the command with all its arguments
+exec "$@"
+
