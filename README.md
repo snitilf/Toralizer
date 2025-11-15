@@ -21,19 +21,26 @@ brew install gcc make tor
 brew services start tor
 ```
 
-verify phase 0 setup (optional):
+verify setup and build:
 
 ```bash
+# phase 0: verify prerequisites
 ./tests/test_phase0.sh
+
+# phase 1: test socks4 protocol
+make phase1
+
+# phase 2: build and test dynamic library
+make phase2
 ```
 
-then build the library:
+or just build directly:
 
 ```bash
 make
 ```
 
-this compiles toralize.dylib which does the actual interception.
+this compiles toralize.dylib which intercepts connect() calls.
 
 ## usage
 
@@ -94,6 +101,28 @@ make clean && make
 - DNS requests may still leak (use Tor Browser for complete anonymity)
 - some applications might not work correctly
 - for educational and legitimate privacy purposes only
+
+## important limitations
+
+macOS system integrity protection (sip) prevents DYLD_INSERT_LIBRARIES from working with system binaries like /usr/bin/curl, /usr/bin/ssh, etc.
+
+toralizer works with:
+- custom-compiled applications
+- user-installed binaries (via homebrew in /opt/homebrew or /usr/local)
+- scripts and programs you build yourself
+
+toralizer does NOT work with:
+- system binaries in /usr/bin, /bin, /sbin
+- any binary protected by sip
+
+to use with homebrew-installed tools:
+```bash
+# install a non-system version
+brew install curl-openssl
+
+# use the homebrew version
+./toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+```
 
 ## technical details
 
