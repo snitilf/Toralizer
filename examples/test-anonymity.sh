@@ -37,7 +37,7 @@ echo ""
 
 # test 1: get real ip
 echo "[1] getting your real ip address..."
-REAL_IP=$($CURL -s http://ipinfo.io/ip 2>/dev/null)
+REAL_IP=$($CURL -s http://httpbin.org/ip 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 if [ -z "$REAL_IP" ]; then
     echo -e "${RED}failed to get real ip${NC}"
     exit 1
@@ -47,7 +47,7 @@ echo ""
 
 # test 2: get tor ip
 echo "[2] getting tor exit node ip..."
-TOR_IP=$(../toralize $CURL -s http://ipinfo.io/ip 2>/dev/null)
+TOR_IP=$(../toralize $CURL -s http://httpbin.org/ip 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 if [ -z "$TOR_IP" ]; then
     echo -e "${RED}failed to get tor ip${NC}"
     exit 1
@@ -72,7 +72,7 @@ echo ""
 echo "[4] testing multiple requests (checking for rotation)..."
 IPS=()
 for i in {1..3}; do
-    IP=$(../toralize $CURL -s http://ipinfo.io/ip 2>/dev/null)
+    IP=$(../toralize $CURL -s http://httpbin.org/ip 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     IPS+=("$IP")
     echo "    request $i: $IP"
     sleep 2

@@ -17,7 +17,7 @@ echo ""
 
 for i in {1..3}; do
     echo "Request $i:"
-    IP=$(../toralize $CURL -s http://ipinfo.io/ip)
+    IP=$(../toralize $CURL -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     echo "  IP: $IP"
     
     if [ $i -lt 3 ]; then
