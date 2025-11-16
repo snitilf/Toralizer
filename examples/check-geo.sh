@@ -23,12 +23,31 @@ echo "checking tor exit node location..."
 echo "using: $CURL"
 echo ""
 
-LOCATION=$(../toralize $CURL -s https://ipapi.co/json/ 2>/dev/null)
+# Get IP from httpbin
+IP=$(../toralize $CURL -s http://httpbin.org/ip 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
-if [ $? -eq 0 ]; then
-    echo "$LOCATION" | jq -r '"ip:       \(.ip)\ncity:     \(.city)\ncountry:  \(.country_name)\nregion:   \(.region)\norg:      \(.org)"'
+if [ -z "$IP" ]; then
+    echo "failed to get tor exit node ip"
+    exit 1
+fi
+
+echo "tor exit node ip: $IP"
+echo ""
+echo "note: getting geolocation data (using ip-api.com)..."
+
+# Get geolocation data using the IP (without going through Tor to avoid blocking)
+LOCATION=$($CURL -s "http://ip-api.com/json/$IP" 2>/dev/null)
+
+if [ $? -eq 0 ] && [ -n "$LOCATION" ]; then
+    if command -v jq &> /dev/null; then
+        echo "$LOCATION" | jq -r '"city:     \(.city)\ncountry:  \(.country)\nregion:   \(.regionName)\nisp:      \(.isp)\norg:      \(.org)"'
+    else
+        echo "$LOCATION"
+        echo ""
+        echo "tip: install jq for pretty output (brew install jq)"
+    fi
 else
-    echo "failed to get location (is jq installed?)"
+    echo "failed to get location data"
 fi
 
 echo ""
