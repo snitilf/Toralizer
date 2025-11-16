@@ -10,14 +10,19 @@ NC='\033[0m'
 # try to find a non-sip curl
 if [ -f "/opt/homebrew/bin/curl" ]; then
     CURL="/opt/homebrew/bin/curl"
+elif [ -f "/opt/homebrew/opt/curl/bin/curl" ]; then
+    CURL="/opt/homebrew/opt/curl/bin/curl"
 elif [ -f "/usr/local/bin/curl" ]; then
     CURL="/usr/local/bin/curl"
+elif [ -f "/usr/local/opt/curl/bin/curl" ]; then
+    CURL="/usr/local/opt/curl/bin/curl"
 else
     echo -e "${YELLOW}warning: using system curl (protected by sip)${NC}"
     echo "this test requires homebrew curl to work properly"
     echo ""
     echo "install it with:"
-    echo "  brew install curl-openssl"
+    echo "  brew install curl"
+    echo "  brew link --force curl"
     echo ""
     echo "or run ./test-with-binary.sh which uses test_http (not sip-protected)"
     echo ""

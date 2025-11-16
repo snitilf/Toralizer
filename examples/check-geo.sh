@@ -5,11 +5,16 @@
 # try to find a non-sip curl
 if [ -f "/opt/homebrew/bin/curl" ]; then
     CURL="/opt/homebrew/bin/curl"
+elif [ -f "/opt/homebrew/opt/curl/bin/curl" ]; then
+    CURL="/opt/homebrew/opt/curl/bin/curl"
 elif [ -f "/usr/local/bin/curl" ]; then
     CURL="/usr/local/bin/curl"
+elif [ -f "/usr/local/opt/curl/bin/curl" ]; then
+    CURL="/usr/local/opt/curl/bin/curl"
 else
     echo "warning: using system curl (may not work due to sip)"
-    echo "install homebrew curl: brew install curl-openssl"
+    echo "install homebrew curl: brew install curl"
+    echo "then link it: brew link --force curl"
     echo ""
     CURL="curl"
 fi
