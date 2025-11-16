@@ -12,11 +12,13 @@ cd ..
 make phase2  # this uses test_http (not sip-protected)
 ```
 
-or install homebrew curl:
+or install homebrew curl (recommended):
 ```bash
-brew install curl-openssl
-# then edit scripts to use /opt/homebrew/bin/curl
+brew install curl
+# scripts automatically detect homebrew curl (even if keg-only)
 ```
+
+note: homebrew curl is installed as "keg-only" by default, meaning it won't override system curl but the scripts will find it automatically.
 
 basic usage:
 ```bash
@@ -192,10 +194,11 @@ fi
 chmod +x *.sh
 ```
 
-**curl not found**:
+**curl not found or not working**:
 ```bash
-brew install curl-openssl
-# then use full path: /opt/homebrew/bin/curl
+brew install curl
+# scripts will automatically find it
+# optionally: brew link --force curl (to override system curl)
 ```
 
 **jq not found**:

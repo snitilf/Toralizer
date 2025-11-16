@@ -62,8 +62,10 @@ you now have a working toralizer installation.
 
 **homebrew binaries** (work):
 ```bash
-brew install curl-openssl
-./toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+brew install curl
+# example scripts automatically detect homebrew curl (even if keg-only)
+cd examples
+./check-ip.sh
 ```
 
 ## what doesn't work
@@ -132,8 +134,9 @@ make clean && make     # rebuild if needed
 which curl  # /usr/bin/curl = won't work
 
 # use homebrew instead
-brew install curl-openssl
-which curl  # /opt/homebrew/bin/curl = will work
+brew install curl
+# homebrew curl is keg-only, so it stays at /opt/homebrew/opt/curl/bin/curl
+# the example scripts automatically detect and use it
 ```
 
 **still having issues**:

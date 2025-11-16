@@ -211,18 +211,18 @@ since macOS system integrity protection (sip) blocks /usr/bin binaries, use home
 
 ```bash
 # install homebrew curl (not sip-protected)
-brew install curl-openssl
+brew install curl
 
-# use with toralizer
-./toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+# example scripts automatically detect it
+cd examples
+./check-ip.sh
 
-# or add to path
-export PATH="/opt/homebrew/bin:$PATH"
-./toralize curl http://ipinfo.io/ip
+# or use full path (keg-only location)
+./toralize /opt/homebrew/opt/curl/bin/curl http://ipinfo.io/ip
 ```
 
 common homebrew packages that work:
-- curl-openssl
+- curl
 - wget
 - python (custom scripts)
 - node (javascript)
@@ -275,8 +275,10 @@ sock.close()
 
 **solution**: use homebrew or compile yourself
 ```bash
-brew install curl-openssl
-./toralize /opt/homebrew/bin/curl http://example.com
+brew install curl
+# example scripts automatically detect it
+cd examples
+./check-ip.sh
 ```
 
 ### dns leaks
@@ -351,8 +353,9 @@ make clean && make
 which curl  # if /usr/bin/curl, won't work
 
 # install homebrew version
-brew install curl-openssl
-which curl  # should show /opt/homebrew/bin/curl
+brew install curl
+# homebrew curl is keg-only, example scripts will find it automatically
+# verify: ls -la /opt/homebrew/opt/curl/bin/curl
 ```
 
 ### connection refused

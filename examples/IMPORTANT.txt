@@ -11,14 +11,18 @@ WHY IT MATTERS:
 HOW TO FIX:
 install homebrew curl (not sip-protected):
 
-    brew install curl-openssl
+    brew install curl
 
-then the scripts will automatically detect and use it.
+the scripts will automatically detect and use it (even if it's keg-only).
+
+note: homebrew curl is "keg-only" by default, meaning it's installed at
+/opt/homebrew/opt/curl/bin/curl instead of /opt/homebrew/bin/curl.
+the scripts now check both locations automatically.
 
 VERIFY IT WORKS:
     # should show DIFFERENT ips
-    /opt/homebrew/bin/curl http://ipinfo.io/ip
-    ../toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+    cd examples
+    ./check-ip.sh
 
 PROOF TORALIZER WORKS:
 even without homebrew curl, you can prove toralizer works:

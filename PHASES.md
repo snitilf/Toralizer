@@ -68,9 +68,10 @@ this document tracks the implementation phases of Toralizer because i have a bad
 # test with custom binary
 ./toralize ./test_http
 
-# test with homebrew binary
-brew install curl-openssl
-./toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+# test with homebrew binary (example scripts auto-detect it)
+brew install curl
+cd examples
+./check-ip.sh
 ```
 
 ## project files

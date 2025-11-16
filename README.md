@@ -132,10 +132,11 @@ toralizer does NOT work with:
 to use with homebrew-installed tools:
 ```bash
 # install a non-system version
-brew install curl-openssl
+brew install curl
 
-# use the homebrew version
-./toralize /opt/homebrew/bin/curl http://ipinfo.io/ip
+# example scripts automatically detect it
+cd examples
+./check-ip.sh
 ```
 
 ## technical details
