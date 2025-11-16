@@ -56,7 +56,7 @@ quick examples:
 
 ```bash
 # check your IP through tor
-./toralize curl http://ipinfo.io/ip
+./toralize curl http://httpbin.org/ip
 
 # run custom programs through tor
 ./toralize ./test_http

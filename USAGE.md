@@ -39,12 +39,12 @@ the command runs normally, but all TCP connections go through tor.
 
 ```bash
 # check what IP the server sees (without tor)
-curl http://ipinfo.io/ip
-# output: 173.178.53.50 (your real IP)
+curl http://httpbin.org/ip
+# output: {"origin": "173.178.53.50"} (your real IP)
 
 # check what IP the server sees (with tor)
-./toralize curl http://ipinfo.io/ip
-# output: 185.220.101.34 (tor exit node IP)
+./toralize curl http://httpbin.org/ip
+# output: {"origin": "185.220.101.34"} (tor exit node IP)
 ```
 
 **why useful**: when researching competitors, checking if a site is accessible, or simply browsing without being tracked.
@@ -73,18 +73,21 @@ done
 **scenario**: you're developing a website and need to test how it behaves from different countries.
 
 ```bash
-# check current geolocation
-./toralize curl https://ipapi.co/json/ | jq '{country, city, ip}'
+# check current geolocation (note: use http not https for speed)
+# first get the tor exit node IP
+IP=$(./toralize curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+
+# then look up geolocation
+curl -s "http://ip-api.com/json/$IP" | jq '{country, city, ip: .query}'
 
 # example output might show:
 # {
-#   "country": "DE",
-#   "city": "Frankfurt",
-#   "ip": "185.220.101.34"
+#   "country": "Sweden",
+#   "city": "Sundbyberg",
+#   "ip": "45.84.107.54"
 # }
 
-# run again - might exit from different country
-./toralize curl https://ipapi.co/json/ | jq '{country, city, ip}'
+# run again after waiting 10+ mins - might exit from different country
 ```
 
 **why useful**: test if your CDN, payment processing, or content delivery works correctly from different regions.
@@ -218,7 +221,7 @@ cd examples
 ./check-ip.sh
 
 # or use full path (keg-only location)
-./toralize /opt/homebrew/opt/curl/bin/curl http://ipinfo.io/ip
+./toralize /opt/homebrew/opt/curl/bin/curl http://httpbin.org/ip
 ```
 
 common homebrew packages that work:
@@ -280,6 +283,46 @@ brew install curl
 cd examples
 ./check-ip.sh
 ```
+
+### https performance issues
+
+**problem**: HTTPS connections can be very slow or hang when using SOCKS4
+
+**explanation**: 
+- SOCKS4 doesn't have built-in SSL/TLS support
+- SSL handshakes add significant overhead through Tor
+- Some services may timeout during the connection
+
+**solution**: use HTTP instead of HTTPS when possible
+```bash
+# slow/hangs
+./toralize curl https://httpbin.org/ip
+
+# fast and reliable
+./toralize curl http://httpbin.org/ip
+```
+
+**note**: you're still anonymous - Tor routing protects your identity regardless of HTTP vs HTTPS
+
+### services blocking tor exit nodes
+
+**problem**: some services block Tor exit nodes (403 Forbidden, CAPTCHA, etc.)
+
+**examples of services that may block tor**:
+- ipinfo.io (blocks Tor exit nodes)
+- many banking/financial sites
+- streaming services (Netflix, Hulu, etc.)
+- some CDNs and anti-bot services
+
+**services that work well with tor**:
+- httpbin.org (IP detection)
+- ip-api.com (geolocation)
+- most public APIs without aggressive anti-bot measures
+
+**solution**: 
+- Use Tor-friendly alternatives when possible
+- For geolocation: get IP via httpbin.org, then look it up separately
+- Understand that blocking is by design - many services want to prevent anonymous access
 
 ### dns leaks
 
@@ -374,7 +417,7 @@ cat /opt/homebrew/etc/tor/torrc
 
 2. **use responsibly**: respect rate limits and terms of service
 
-3. **verify anonymity**: always check your exit IP with `./toralize curl http://ipinfo.io/ip`
+3. **verify anonymity**: always check your exit IP with `./toralize curl http://httpbin.org/ip`
 
 4. **don't rely solely on tor**: for true anonymity, use tor browser with additional precautions
 
@@ -429,14 +472,15 @@ mkdir examples
 # check-ip.sh
 cat > examples/check-ip.sh << 'EOF'
 #!/bin/bash
-echo "real ip: $(curl -s http://ipinfo.io/ip)"
-echo "tor ip:  $(./toralize curl -s http://ipinfo.io/ip)"
+echo "real ip: $(curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')"
+echo "tor ip:  $(./toralize curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')"
 EOF
 
 # test-geo.sh  
 cat > examples/test-geo.sh << 'EOF'
 #!/bin/bash
-./toralize curl -s https://ipapi.co/json/ | jq '{ip, city, country, org}'
+IP=$(./toralize curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+curl -s "http://ip-api.com/json/$IP" | jq '{ip: .query, city, country, org}'
 EOF
 
 chmod +x examples/*.sh

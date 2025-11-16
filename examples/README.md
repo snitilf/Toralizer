@@ -20,6 +20,15 @@ brew install curl
 
 note: homebrew curl is installed as "keg-only" by default, meaning it won't override system curl but the scripts will find it automatically.
 
+### important notes
+
+**http vs https**: these scripts use HTTP (not HTTPS) for speed and reliability. HTTPS can be very slow or hang when using SOCKS4 through Tor. You're still anonymous - Tor routing protects your identity regardless of the protocol.
+
+**services used**:
+- `httpbin.org` - for IP detection (Tor-friendly)
+- `ip-api.com` - for geolocation lookups (Tor-friendly)
+- note: services like ipinfo.io block Tor exit nodes
+
 basic usage:
 ```bash
 cd examples
@@ -140,13 +149,14 @@ fi
 
 ```bash
 # get ip only
-../toralize curl -s http://ipinfo.io/ip
+../toralize curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'
 
 # get full json
-../toralize curl -s http://ipinfo.io/json | jq .
+../toralize curl -s http://httpbin.org/ip | jq .
 
-# get specific field
-../toralize curl -s http://ipinfo.io/json | jq -r '.city'
+# get geolocation info (first get IP, then look it up)
+IP=$(../toralize curl -s http://httpbin.org/ip | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+curl -s "http://ip-api.com/json/$IP" | jq .
 ```
 
 ### looping with delays
