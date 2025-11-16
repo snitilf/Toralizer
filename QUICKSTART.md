@@ -51,6 +51,34 @@ this shows direct vs tor connections side-by-side.
 
 you now have a working toralizer installation.
 
+## 6. (optional) setup curl for command-line use
+
+to use `./toralize curl` directly from command line, install and link homebrew curl:
+
+```bash
+brew install curl
+brew link --force curl
+```
+
+**why this matters:**
+- system curl (`/usr/bin/curl`) is protected by macOS sip and cannot be intercepted
+- homebrew curl is not sip-protected and works with toralizer
+- linking makes `curl` resolve to homebrew version automatically
+
+**verify it worked:**
+```bash
+which curl
+# should show: /opt/homebrew/bin/curl (not /usr/bin/curl)
+
+./toralize curl http://httpbin.org/ip
+# should show a tor exit node IP (not your real IP)
+```
+
+**note:** if you skip this step, you can:
+- use the example scripts (they auto-detect homebrew curl)
+- use full path: `./toralize /opt/homebrew/opt/curl/bin/curl`
+- the test binaries and custom programs will still work fine
+
 ## what works
 
 **custom binaries** (always work):
@@ -62,8 +90,10 @@ you now have a working toralizer installation.
 
 **homebrew binaries** (work):
 ```bash
-brew install curl
-# example scripts automatically detect homebrew curl (even if keg-only)
+# after running: brew install curl && brew link --force curl
+./toralize curl http://httpbin.org/ip
+
+# or use the example scripts (auto-detect curl)
 cd examples
 ./check-ip.sh
 ```
@@ -128,15 +158,20 @@ ls -la toralize.dylib  # check it exists
 make clean && make     # rebuild if needed
 ```
 
-**no interception**:
+**no interception / seeing your real IP**:
 ```bash
 # are you using a system binary?
-which curl  # /usr/bin/curl = won't work
+which curl  # /usr/bin/curl = won't work (sip-protected)
 
-# use homebrew instead
+# solution: install and link homebrew curl
 brew install curl
-# homebrew curl is keg-only, so it stays at /opt/homebrew/opt/curl/bin/curl
-# the example scripts automatically detect and use it
+brew link --force curl
+
+# verify it worked
+which curl  # should now show /opt/homebrew/bin/curl
+
+# test it
+./toralize curl http://httpbin.org/ip  # should show tor IP, not your real IP
 ```
 
 **still having issues**:

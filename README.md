@@ -44,6 +44,21 @@ make
 
 this compiles toralize.dylib which intercepts connect() calls.
 
+## setup for command-line use
+
+to use `curl` and other commands directly:
+
+```bash
+# install and link homebrew curl
+brew install curl
+brew link --force curl
+
+# verify
+which curl  # should show /opt/homebrew/bin/curl
+```
+
+**why?** system binaries (`/usr/bin/curl`) are protected by macOS sip and can't be intercepted.
+
 ## usage
 
 basic syntax:
@@ -55,14 +70,14 @@ basic syntax:
 quick examples:
 
 ```bash
-# check your IP through tor
+# check your IP through tor (after linking curl)
 ./toralize curl http://httpbin.org/ip
 
 # run custom programs through tor
 ./toralize ./test_http
 
-# use with homebrew binaries
-./toralize /opt/homebrew/bin/curl https://example.com
+# use example scripts (auto-detect homebrew curl)
+cd examples && ./check-ip.sh
 ```
 
 for detailed usage guide with real-world examples, see:
