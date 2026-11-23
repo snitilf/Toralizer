@@ -1,5 +1,5 @@
 # makefile for toralizer (macOS)
-# builds a dynamic library (.dylib) that intercepts network connections
+# builds a dynamic library (.dylib) that redirects IPv4 TCP connect() calls through tor
 
 # compiler and flags
 CC = clang
@@ -26,10 +26,11 @@ $(TARGET): $(SOURCES) $(HEADERS)
 	@echo "built $(TARGET)"
 	@echo ""
 	@echo "usage:"
-	@echo "  ./toralize <command>"
+	@echo "  ./toralize <program> [args...]"
 	@echo ""
-	@echo "example:"
-	@echo "  ./toralize curl http://ipinfo.io/ip"
+	@echo "the program must not be SIP-protected (so not /usr/bin/curl)"
+	@echo "example, with homebrew curl and tor on 127.0.0.1:9050:"
+	@echo "  ./toralize \"\$$(brew --prefix curl)/bin/curl\" -4 -s http://httpbin.org/ip"
 
 # build the test client (phase 1)
 $(TEST_CLIENT): $(TEST_SOURCES) $(HEADERS)
@@ -73,16 +74,17 @@ clean:
 	rm -f $(TARGET) $(TEST_CLIENT) $(TEST_HTTP)
 	@echo "clean complete"
 
-# test by showing your real ip vs tor ip (phase 2)
+# show your real ip vs your ip through tor (needs tor on 127.0.0.1:9050)
+# uses homebrew curl because /usr/bin/curl is SIP-protected and ignores DYLD_INSERT_LIBRARIES
+BREW_CURL = $(shell brew --prefix curl 2>/dev/null)/bin/curl
+TEST_URL = http://httpbin.org/ip
+
 test: $(TARGET)
-	@echo "testing toralizer..."
-	@echo ""
+	@test -x "$(BREW_CURL)" || { echo "homebrew curl not found, run: brew install curl"; exit 1; }
 	@echo "your real ip:"
-	@curl -s http://ipinfo.io/ip
-	@echo ""
+	@"$(BREW_CURL)" -4 -s $(TEST_URL)
 	@echo "your ip through tor:"
-	@./toralize curl -s http://ipinfo.io/ip
-	@echo ""
+	@./toralize "$(BREW_CURL)" -4 -s $(TEST_URL)
 
 .PHONY: all clean test phase1 phase2
 
