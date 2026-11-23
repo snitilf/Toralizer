@@ -25,7 +25,7 @@ fi
 
 # check if tor is running
 echo "checking tor service..."
-if ! lsof -i :9050 &> /dev/null; then
+if ! lsof -nP -iTCP:9050 -sTCP:LISTEN &> /dev/null; then
     echo -e "${RED}error: tor is not running on port 9050${NC}"
     echo "run: brew services start tor"
     exit 1

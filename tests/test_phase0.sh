@@ -105,8 +105,8 @@ echo ""
 
 # test 7: check if tor service is running
 echo "checking tor service..."
-if lsof -i :9050 &> /dev/null; then
-    TOR_PID=$(lsof -t -i :9050)
+if lsof -nP -iTCP:9050 -sTCP:LISTEN &> /dev/null; then
+    TOR_PID=$(lsof -t -nP -iTCP:9050 -sTCP:LISTEN)
     pass "tor service running on port 9050 (PID: $TOR_PID)"
 else
     fail "tor service not running on port 9050"
