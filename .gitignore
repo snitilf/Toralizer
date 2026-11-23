@@ -21,3 +21,7 @@
 # Test files
 test_output/
 
+
+# Test binaries
+test_http
+test_socks4
