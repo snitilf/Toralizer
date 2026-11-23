@@ -1,15 +1,27 @@
 // toralize.c
-// 
-// implementation of the socks4 tor proxy interceptor
-// this library intercepts connect() calls and routes them through tor
+//
+// dyld interpose library that reroutes IPv4 TCP connect() calls through
+// tor's SOCKS4 proxy (127.0.0.1:9050)
+//
+// routing policy:
+//   AF_INET stream, non-loopback    -> tor (socks4 CONNECT)
+//   AF_INET loopback / 0.0.0.0      -> real connect
+//   AF_INET6 stream, loopback       -> real connect
+//   AF_INET6 stream, anything else  -> refused with ENETUNREACH (fail closed)
+//   non-stream sockets, other families, malformed arguments -> real connect
 
 #include "toralize.h"
+#include <fcntl.h>
+#include <stddef.h>
 
-// forward declaration of our replacement connect function
+// raw connect syscall wrapper from libsystem_kernel
+// the interposed connect() would call back into us, this one does not
+extern int __connect(int, const struct sockaddr *, socklen_t);
+
 static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 
-// DYLD_INTERPOSE macro for macOS function interposition
-// this is the proper way to intercept system calls on macOS
+// dyld interpose table entry: dyld rewrites every binding of `replacee` to
+// `replacement` in all loaded images except this one
 #define DYLD_INTERPOSE(_replacement, _replacee) \
     __attribute__((used)) static struct { \
         const void* replacement; \
@@ -19,107 +31,146 @@ static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t a
         (const void*)(unsigned long)&_replacee \
     };
 
-// register our interposition
 DYLD_INTERPOSE(toralize_connect, connect)
 
-// our custom connect() function that intercepts all connection attempts
-// this function will be called instead of the system's connect()
-static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
-    // dlsym is not needed with DYLD_INTERPOSE - we'll use syscall if needed
-    // but for simplicity, we'll create a new socket for the proxy
+// close the proxy socket and fail with the given errno
+// errno is set after close() so close() cannot overwrite it
+static int fail(int proxy_fd, int err) {
+    close(proxy_fd);
+    errno = err;
+    return -1;
+}
 
-    // only intercept ipv4 tcp connections
-    if (addr->sa_family != AF_INET) {
-        // for non-ipv4, we need to use the real connect
-        // since we can't easily call the original with DYLD_INTERPOSE,
-        // we'll just let non-ipv4 fail or handle it differently
+// connect `sockfd` to dstip:dstport through tor
+// dstip and dstport are in network byte order
+static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
+    char ipstr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &dstip, ipstr, sizeof(ipstr));
+    fprintf(stderr, "[toralize] intercepting connection to %s:%d\n", ipstr, ntohs(dstport));
+
+    // remember the caller's fd state, dup2 below replaces it with the proxy socket's
+    int status_flags = fcntl(sockfd, F_GETFL);
+    int fd_flags = fcntl(sockfd, F_GETFD);
+    if (status_flags < 0 || fd_flags < 0) {
         return -1;
     }
 
-    // cast to ipv4 address structure
-    struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-    
-    // extract destination ip and port
-    char *dest_ip = inet_ntoa(addr_in->sin_addr);
-    unsigned short dest_port = ntohs(addr_in->sin_port);
-    
-    fprintf(stderr, "[toralize] intercepting connection to %s:%d\n", dest_ip, dest_port);
-
-    // create a new socket for connecting to the tor proxy
+    // the handshake runs on a fresh blocking socket
     int proxy_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (proxy_fd < 0) {
         perror("[toralize] socket");
         return -1;
     }
 
-    // set up the tor proxy address
     struct sockaddr_in proxy_addr;
     memset(&proxy_addr, 0, sizeof(proxy_addr));
     proxy_addr.sin_family = AF_INET;
     proxy_addr.sin_port = htons(PROXYPORT);
     proxy_addr.sin_addr.s_addr = inet_addr(PROXY);
 
-    // we need to call the real connect - use a syscall
-    // on macOS, we can use __connect system call
-    extern int __connect(int, const struct sockaddr *, socklen_t);
     if (__connect(proxy_fd, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
+        int err = errno;
         perror("[toralize] connect to proxy");
-        close(proxy_fd);
-        return -1;
+        return fail(proxy_fd, err);
     }
-
     fprintf(stderr, "[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
 
-    // build the socks4 request
-    socks4_request_t req;
-    req.vn = 4;                           // socks version 4
-    req.cd = CONNECT;                     // connect command
-    req.dstport = addr_in->sin_port;      // destination port (already in network byte order)
-    req.dstip = addr_in->sin_addr.s_addr; // destination ip (already in network byte order)
-
-    // send the socks4 request
-    if (send(proxy_fd, &req, sizeof(req), 0) < 0) {
+    // socks4 request: fixed header followed by the null-terminated user id
+    unsigned char buf[sizeof(socks4_request_t) + sizeof(USERNAME)];
+    socks4_request_t req = { .vn = 4, .cd = CONNECT, .dstport = dstport, .dstip = dstip };
+    memcpy(buf, &req, sizeof(req));
+    memcpy(buf + sizeof(req), USERNAME, sizeof(USERNAME));
+    ssize_t sent = send(proxy_fd, buf, sizeof(buf), 0);
+    if (sent != (ssize_t)sizeof(buf)) {
+        int err = sent < 0 ? errno : EIO;
         perror("[toralize] send request");
-        close(proxy_fd);
-        return -1;
+        return fail(proxy_fd, err);
     }
-
-    // send the username (null-terminated)
-    if (send(proxy_fd, USERNAME, strlen(USERNAME) + 1, 0) < 0) {
-        perror("[toralize] send username");
-        close(proxy_fd);
-        return -1;
-    }
-
     fprintf(stderr, "[toralize] sent socks4 request\n");
 
-    // receive the socks4 response
+    // the reply is 8 bytes, MSG_WAITALL keeps a split reply from looking short
     socks4_response_t resp;
-    if (recv(proxy_fd, &resp, sizeof(resp), 0) < sizeof(resp)) {
-        perror("[toralize] recv response");
-        close(proxy_fd);
-        return -1;
+    ssize_t n = recv(proxy_fd, &resp, sizeof(resp), MSG_WAITALL);
+    if (n != (ssize_t)sizeof(resp)) {
+        int err = n < 0 ? errno : ECONNRESET;
+        fprintf(stderr, "[toralize] error: no socks4 reply from tor proxy\n");
+        return fail(proxy_fd, err);
     }
-
-    // check if the connection was granted
+    if (resp.vn != 0) {
+        fprintf(stderr, "[toralize] error: bad socks4 reply version %d\n", resp.vn);
+        return fail(proxy_fd, EPROTO);
+    }
     if (resp.cd != GRANTED) {
         fprintf(stderr, "[toralize] error: tor proxy denied connection (code %d)\n", resp.cd);
-        close(proxy_fd);
-        errno = ECONNREFUSED;
-        return -1;
+        return fail(proxy_fd, ECONNREFUSED);
     }
-
     fprintf(stderr, "[toralize] connection granted, routing through tor\n");
 
-    // replace the original socket with our tor-connected socket
-    // this is the magic that makes the application use the tor connection
+    // put the tor-connected socket under the caller's fd number
     if (dup2(proxy_fd, sockfd) < 0) {
+        int err = errno;
         perror("[toralize] dup2");
-        close(proxy_fd);
+        return fail(proxy_fd, err);
+    }
+    close(proxy_fd);
+
+    // dup2 gave the fd the proxy socket's flags, put back the caller's
+    // (O_NONBLOCK in particular) and its close-on-exec setting
+    if (fcntl(sockfd, F_SETFL, status_flags) < 0 || fcntl(sockfd, F_SETFD, fd_flags) < 0) {
+        perror("[toralize] restore fd flags");
         return -1;
     }
-
-    close(proxy_fd);
     return 0;
 }
 
+static int is_loopback_v4(uint32_t ip_be) {
+    uint32_t ip = ntohl(ip_be);
+    return (ip >> 24) == 127 || ip == INADDR_ANY;
+}
+
+static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    // anything we cannot classify goes to the real connect, which reports the error itself
+    if (addr == NULL || addrlen < offsetof(struct sockaddr, sa_data)) {
+        return __connect(sockfd, addr, addrlen);
+    }
+    if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6) {
+        return __connect(sockfd, addr, addrlen);
+    }
+
+    // only stream sockets are proxied, UDP "connect" and the like pass through
+    int type;
+    socklen_t type_len = sizeof(type);
+    if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &type, &type_len) < 0 || type != SOCK_STREAM) {
+        return __connect(sockfd, addr, addrlen);
+    }
+
+    if (addr->sa_family == AF_INET) {
+        if (addrlen < sizeof(struct sockaddr_in)) {
+            return __connect(sockfd, addr, addrlen);
+        }
+        const struct sockaddr_in *in = (const struct sockaddr_in *)addr;
+        if (is_loopback_v4(in->sin_addr.s_addr)) {
+            return __connect(sockfd, addr, addrlen);
+        }
+        return connect_via_tor(sockfd, in->sin_addr.s_addr, in->sin_port);
+    }
+
+    // AF_INET6: tor's SOCKS4 cannot carry it, so never connect directly
+    if (addrlen < sizeof(struct sockaddr_in6)) {
+        return __connect(sockfd, addr, addrlen);
+    }
+    const struct sockaddr_in6 *in6 = (const struct sockaddr_in6 *)addr;
+    if (IN6_IS_ADDR_LOOPBACK(&in6->sin6_addr)) {
+        return __connect(sockfd, addr, addrlen);
+    }
+    if (IN6_IS_ADDR_V4MAPPED(&in6->sin6_addr)) {
+        uint32_t mapped;
+        memcpy(&mapped, &in6->sin6_addr.s6_addr[12], sizeof(mapped));
+        if (is_loopback_v4(mapped)) {
+            return __connect(sockfd, addr, addrlen);
+        }
+    }
+    fprintf(stderr, "[toralize] refusing IPv6 connection (tor socks4 is IPv4 only)\n");
+    errno = ENETUNREACH;
+    return -1;
+}

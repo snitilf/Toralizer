@@ -13,8 +13,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <dlfcn.h>
 #include <errno.h>
+#include <stdint.h>
 
 // tor proxy configuration
 #define PROXY "127.0.0.1"
