@@ -1,9 +1,13 @@
 #!/bin/bash
 #
-# toralize - wrapper script to route any command through tor
+# toralize - run a program with toralize.dylib injected, so its IPv4 TCP
+# connect() calls go through tor's SOCKS4 proxy on 127.0.0.1:9050
 #
-# usage: ./toralize <command> [args...]
-# example: ./toralize curl http://ipinfo.io/ip
+# the program must not be SIP-protected: macOS strips DYLD_INSERT_LIBRARIES
+# for system binaries such as /usr/bin/curl, so use homebrew or self-built ones
+#
+# usage: ./toralize <program> [args...]
+# example: ./toralize "$(brew --prefix curl)/bin/curl" -4 -s http://httpbin.org/ip
 
 # get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -18,21 +22,19 @@ if [ ! -f "$LIB_PATH" ]; then
     exit 1
 fi
 
-# check if a command was provided
+# check if a program was provided
 if [ $# -eq 0 ]; then
-    echo "usage: $0 <command> [args...]"
+    echo "usage: $0 <program> [args...]"
     echo ""
-    echo "example:"
-    echo "  $0 curl http://ipinfo.io/ip"
-    echo "  $0 ssh user@example.com"
-    echo "  $0 wget http://example.com"
+    echo "example (SIP-protected binaries such as /usr/bin/curl are not affected):"
+    echo "  $0 \"\$(brew --prefix curl)/bin/curl\" -4 -s http://httpbin.org/ip"
     exit 1
 fi
 
 # export the DYLD_INSERT_LIBRARIES environment variable
-# this tells macOS to load our library before running the command
+# this tells dyld to load our library into the program
 export DYLD_INSERT_LIBRARIES="$LIB_PATH"
 
-# execute the command with all its arguments
+# execute the program with all its arguments
 exec "$@"
 
