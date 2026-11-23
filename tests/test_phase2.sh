@@ -31,7 +31,7 @@ fi
 
 # check if tor is running
 echo "checking tor service..."
-if ! lsof -i :9050 &> /dev/null; then
+if ! lsof -nP -iTCP:9050 -sTCP:LISTEN &> /dev/null; then
     echo -e "${RED}error: tor is not running on port 9050${NC}"
     echo "run: brew services start tor"
     exit 1
@@ -42,8 +42,9 @@ echo ""
 # test 1: verify direct connection works (baseline)
 echo "test 1: direct connection (no interception)"
 echo "----------------------------------------"
-./test_http 2>&1 | head -8
+OUTPUT1=$(./test_http 2>&1)
 TEST1_RESULT=$?
+echo "$OUTPUT1" | head -8
 echo ""
 
 if [ $TEST1_RESULT -eq 0 ]; then
@@ -98,18 +99,25 @@ fi
 
 echo ""
 
-# test 3: note about system binaries
-echo "test 3: system binaries (sip protected)"
+# test 3: system binaries (sip protected) must NOT be intercepted
+echo "test 3: system binary under sip (/usr/bin/curl)"
 echo "----------------------------------------"
-echo "note: system binaries like /usr/bin/curl are protected by"
-echo "      macOS system integrity protection (sip) and cannot"
-echo "      be intercepted with DYLD_INSERT_LIBRARIES."
+echo "note: macOS strips DYLD_INSERT_LIBRARIES for sip-protected binaries"
+echo "      such as /usr/bin/curl, so toralize cannot intercept them."
 echo ""
-echo "testing with curl (expected to NOT show interception):"
-./toralize curl -s http://1.1.1.1 2>&1 | head -5
+OUTPUT3=$(./toralize /usr/bin/curl -4 -s --max-time 10 http://1.1.1.1 2>&1)
+echo "$OUTPUT3" | head -5
 echo ""
-echo -e "${YELLOW}[INFO]${NC} this is expected behavior on modern macOS"
-echo -e "${YELLOW}[INFO]${NC} use custom-compiled binaries for testing"
+
+if echo "$OUTPUT3" | grep -q "\[toralize\]"; then
+    echo -e "${RED}[FAIL]${NC} test 3: /usr/bin/curl was intercepted (unexpected)"
+    TEST3_PASS=0
+else
+    echo -e "${GREEN}[PASS]${NC} test 3: /usr/bin/curl was not intercepted (sip, expected)"
+    TEST3_PASS=1
+fi
+echo ""
+echo -e "${YELLOW}[INFO]${NC} use homebrew or self-built binaries for interception"
 echo ""
 
 # summary
@@ -117,8 +125,8 @@ echo "========================================"
 echo "test summary"
 echo "========================================"
 
-TOTAL_TESTS=5
-PASSED=$((TEST2A_PASS + TEST2B_PASS + TEST2C_PASS + TEST2D_PASS))
+TOTAL_TESTS=6
+PASSED=$((TEST2A_PASS + TEST2B_PASS + TEST2C_PASS + TEST2D_PASS + TEST3_PASS))
 if [ $TEST1_RESULT -eq 0 ]; then ((PASSED++)); fi
 
 echo -e "${GREEN}passed: $PASSED/$TOTAL_TESTS${NC}"

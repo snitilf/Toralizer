@@ -57,12 +57,24 @@ int main() {
     // receive response
     char buffer[4096];
     ssize_t received;
+    ssize_t total = 0;
     while ((received = recv(sockfd, buffer, sizeof(buffer) - 1, 0)) > 0) {
         buffer[received] = '\0';
         printf("%s", buffer);
+        total += received;
     }
 
     close(sockfd);
+
+    // a connection that yields no response, or a recv error, is a failed test
+    if (received < 0) {
+        perror("recv failed");
+        return 1;
+    }
+    if (total == 0) {
+        fprintf(stderr, "no response received\n");
+        return 1;
+    }
     return 0;
 }
 
