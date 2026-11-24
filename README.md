@@ -21,31 +21,7 @@ You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled o
   <img src="docs/demo/demo-light.svg" alt="A terminal session. Homebrew curl run directly reports IsTor false. The same command with ./toralize in front logs four [toralize] lines and reports IsTor true with a Tor exit address. ./toralize with /usr/bin/curl prints a SIP warning and reports IsTor false again.">
 </picture>
 
-Recorded by `docs/demo/record.py` on macOS 27.2.1, arm64, with Homebrew curl 8.17.0 and Tor 0.4.8.21.
-The commands and their output are the captured run, with the real address masked.
-The window, the prompt and the pacing are added by `docs/demo/render.py`.
-The exit address changes between runs.
-
-<details>
-<summary>The same run as text</summary>
-
-```text
-% /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
-{"IsTor":false,"IP":"204.x.x.x"}
-
-% ./toralize /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
-[toralize] intercepting connection to 116.202.120.181:443
-[toralize] connected to tor proxy at 127.0.0.1:9050
-[toralize] sent socks4 request
-[toralize] connection granted, routing through tor
-{"IsTor":true,"IP":"45.84.107.100"}
-
-% ./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip
-[toralize] warning: /usr/bin/curl is protected by SIP, DYLD_INSERT_LIBRARIES is stripped and the connection will not be rerouted
-{"IsTor":false,"IP":"204.x.x.x"}
-```
-
-</details>
+Captured with `docs/demo/record.py` on macOS 27.2.1 (arm64), Homebrew curl 8.17.0 and Tor 0.4.8.21, real address masked.
 
 Three limits come first:
 
@@ -156,15 +132,8 @@ The library is built for the host architecture, and it has only been run on arm6
 Other ways to run it:
 
 ```sh
-# your real address, then the one through Tor
-make demo
-
 # one of your own binaries, no Homebrew curl needed
 make clients && ./toralize ./tests/test_http
-
-# record the README animation again, with Tor running, then redraw it from the capture
-make demo-record
-make demo-render
 
 # what the wrapper does
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
@@ -222,12 +191,12 @@ toralize.c            the interposed connect(), routing and proxy socket handlin
 socks4.c              the SOCKS4 handshake, shared by the library and the test client
 toralize.h            proxy address, SOCKS4 constants, packed request and reply structs
 toralize              wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
-Makefile              builds toralize.dylib and the test programs, runs the tests and the demo
+Makefile              builds toralize.dylib and the test programs, runs the tests, `make demo` prints the real and the Tor address
 tests/                check_env.sh, test_socks4.sh, test_intercept.sh
 tests/test_routing.c  routing table test with a mock SOCKS4 proxy, used by `make test-routing`
 tests/test_socks4.c   standalone SOCKS4 client, used by `make test-socks4`
 tests/test_http.c     plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
-docs/demo/            record.py captures the demo run into session.json, render.py draws it as demo-light.svg and demo-dark.svg
+docs/demo/            record.py captures the demo run into session.json, render.py draws it as the two SVGs (`make demo-record`, `make demo-render`)
 .github/workflows/    build.yml, the macOS build and hook check
 LICENSE               MIT
 ```
