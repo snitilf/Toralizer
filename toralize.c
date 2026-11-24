@@ -33,9 +33,10 @@ static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t a
 
 DYLD_INTERPOSE(toralize_connect, connect)
 
-// close the proxy socket and fail with the given errno
-// errno is set after close() so close() cannot overwrite it
-static int fail(int proxy_fd, int err) {
+// close the proxy socket and return -1 with errno as the caller left it
+// errno is saved across close() so close() cannot overwrite it
+static int fail(int proxy_fd) {
+    int err = errno;
     close(proxy_fd);
     errno = err;
     return -1;
@@ -58,7 +59,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     // the handshake runs on a fresh blocking socket
     int proxy_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (proxy_fd < 0) {
-        perror("[toralize] socket");
+        toralize_perror("socket");
         return -1;
     }
 
@@ -69,9 +70,8 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     proxy_addr.sin_addr.s_addr = inet_addr(PROXY);
 
     if (__connect(proxy_fd, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
-        int err = errno;
-        perror("[toralize] connect to proxy");
-        return fail(proxy_fd, err);
+        toralize_perror("connect to proxy");
+        return fail(proxy_fd);
     }
     fprintf(stderr, "[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
 
@@ -82,9 +82,11 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     memcpy(buf + sizeof(req), USERNAME, sizeof(USERNAME));
     ssize_t sent = send(proxy_fd, buf, sizeof(buf), 0);
     if (sent != (ssize_t)sizeof(buf)) {
-        int err = sent < 0 ? errno : EIO;
-        perror("[toralize] send request");
-        return fail(proxy_fd, err);
+        if (sent >= 0) {
+            errno = EIO;
+        }
+        toralize_perror("send request");
+        return fail(proxy_fd);
     }
     fprintf(stderr, "[toralize] sent socks4 request\n");
 
@@ -92,25 +94,28 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     socks4_response_t resp;
     ssize_t n = recv(proxy_fd, &resp, sizeof(resp), MSG_WAITALL);
     if (n != (ssize_t)sizeof(resp)) {
-        int err = n < 0 ? errno : ECONNRESET;
+        if (n >= 0) {
+            errno = ECONNRESET;
+        }
         fprintf(stderr, "[toralize] error: no socks4 reply from tor proxy\n");
-        return fail(proxy_fd, err);
+        return fail(proxy_fd);
     }
     if (resp.vn != 0) {
         fprintf(stderr, "[toralize] error: bad socks4 reply version %d\n", resp.vn);
-        return fail(proxy_fd, EPROTO);
+        errno = EPROTO;
+        return fail(proxy_fd);
     }
     if (resp.cd != SOCKS4_GRANTED) {
         fprintf(stderr, "[toralize] error: tor proxy denied connection (code %d)\n", resp.cd);
-        return fail(proxy_fd, ECONNREFUSED);
+        errno = ECONNREFUSED;
+        return fail(proxy_fd);
     }
     fprintf(stderr, "[toralize] connection granted, routing through tor\n");
 
     // put the tor-connected socket under the caller's fd number
     if (dup2(proxy_fd, sockfd) < 0) {
-        int err = errno;
-        perror("[toralize] dup2");
-        return fail(proxy_fd, err);
+        toralize_perror("dup2");
+        return fail(proxy_fd);
     }
     close(proxy_fd);
 
@@ -118,7 +123,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     // (O_NONBLOCK in particular) and its close-on-exec setting
     if (fcntl(sockfd, F_SETFL, status_flags) < 0 || fcntl(sockfd, F_SETFD, fd_flags) < 0) {
         // no fail() here: the fd already is the tor socket and the caller keeps it
-        perror("[toralize] restore fd flags");
+        toralize_perror("restore fd flags");
         return -1;
     }
     return 0;
