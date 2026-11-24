@@ -24,10 +24,9 @@ int socks4_handshake(int fd, uint32_t dstip_be, uint16_t dstport_be) {
     socks4_response_t resp;
     ssize_t n = recv(fd, &resp, sizeof(resp), MSG_WAITALL);
     if (n != (ssize_t)sizeof(resp)) {
-        if (n >= 0) {
-            errno = ECONNRESET;
-        }
+        int err = n < 0 ? errno : ECONNRESET;
         fprintf(stderr, "[toralize] error: no socks4 reply from tor proxy\n");
+        errno = err;
         return -1;
     }
     if (resp.vn != 0) {
