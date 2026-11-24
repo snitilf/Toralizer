@@ -18,7 +18,7 @@ int socks4_handshake(int fd, uint32_t dstip_be, uint16_t dstport_be) {
         toralize_perror("send request");
         return -1;
     }
-    fprintf(stderr, "[toralize] sent socks4 request\n");
+    TORALIZE_INFO("[toralize] sent socks4 request\n");
 
     // the reply is 8 bytes, MSG_WAITALL keeps a split reply from looking short
     socks4_response_t resp;

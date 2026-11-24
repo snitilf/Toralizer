@@ -47,7 +47,7 @@ static int fail(int proxy_fd) {
 static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     char ipstr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &dstip, ipstr, sizeof(ipstr));
-    fprintf(stderr, "[toralize] intercepting connection to %s:%d\n", ipstr, ntohs(dstport));
+    TORALIZE_INFO("[toralize] intercepting connection to %s:%d\n", ipstr, ntohs(dstport));
 
     // remember the caller's fd state, dup2 below replaces it with the proxy socket's
     int status_flags = fcntl(sockfd, F_GETFL);
@@ -73,12 +73,12 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
         toralize_perror("connect to proxy");
         return fail(proxy_fd);
     }
-    fprintf(stderr, "[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
+    TORALIZE_INFO("[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
 
     if (socks4_handshake(proxy_fd, dstip, dstport) < 0) {
         return fail(proxy_fd);
     }
-    fprintf(stderr, "[toralize] connection granted, routing through tor\n");
+    TORALIZE_INFO("[toralize] connection granted, routing through tor\n");
 
     // put the tor-connected socket under the caller's fd number
     if (dup2(proxy_fd, sockfd) < 0) {
