@@ -27,6 +27,6 @@ jobs:
         run: |
           # No Tor runs on the runner, so the program may fail.
           # Only the log line proves the hook fired.
-          out=$(./toralize ./test_http 2>&1 || true)
+          out=$(./toralize ./tests/test_http 2>&1 || true)
           echo "$out"
           echo "$out" | grep -F '[toralize] intercepting connection to'
