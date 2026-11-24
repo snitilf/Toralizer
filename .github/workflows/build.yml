@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the library with warnings as errors
+        run: make EXTRA_CFLAGS=-Werror
+
+      - name: Build the test clients
+        run: make EXTRA_CFLAGS=-Werror test_socks4 test_http
+
+      - name: Check the interpose entry
+        run: nm -m toralize.dylib | grep -E '\(__DATA(_CONST)?,__interpose\)'
+
+      - name: Check the hook fires
+        run: |
+          # No Tor runs on the runner, so the program may fail.
+          # Only the log line proves the hook fired.
+          out=$(./toralize ./test_http 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -F '[toralize] intercepting connection to'
