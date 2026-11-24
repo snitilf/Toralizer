@@ -30,7 +30,7 @@ $(TARGET): $(SOURCES) $(HEADERS)
 	@echo ""
 	@echo "the program must not be SIP-protected (so not /usr/bin/curl)"
 	@echo "example, with homebrew curl and tor on 127.0.0.1:9050:"
-	@echo "  ./toralize \"\$$(brew --prefix curl)/bin/curl\" -4 -s http://httpbin.org/ip"
+	@echo "  ./toralize \"\$$(brew --prefix curl)/bin/curl\" -4 -s https://check.torproject.org/api/ip"
 
 # build the test client (phase 1)
 $(TEST_CLIENT): $(TEST_SOURCES) $(HEADERS)
@@ -77,14 +77,14 @@ clean:
 # show your real ip vs your ip through tor (needs tor on 127.0.0.1:9050)
 # uses homebrew curl because /usr/bin/curl is SIP-protected and ignores DYLD_INSERT_LIBRARIES
 BREW_CURL = $(shell brew --prefix curl 2>/dev/null)/bin/curl
-TEST_URL = http://httpbin.org/ip
+TEST_URL = https://check.torproject.org/api/ip
 
 test: $(TARGET)
 	@test -x "$(BREW_CURL)" || { echo "homebrew curl not found, run: brew install curl"; exit 1; }
 	@echo "your real ip:"
-	@"$(BREW_CURL)" -4 -s $(TEST_URL)
+	@"$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
 	@echo "your ip through tor:"
-	@./toralize "$(BREW_CURL)" -4 -s $(TEST_URL)
+	@./toralize "$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
 
 .PHONY: all clean test phase1 phase2
 

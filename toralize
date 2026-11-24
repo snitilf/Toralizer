@@ -7,7 +7,7 @@
 # for system binaries such as /usr/bin/curl, so use homebrew or self-built ones
 #
 # usage: ./toralize <program> [args...]
-# example: ./toralize "$(brew --prefix curl)/bin/curl" -4 -s http://httpbin.org/ip
+# example: ./toralize "$(brew --prefix curl)/bin/curl" -4 -s https://check.torproject.org/api/ip
 
 # get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -27,7 +27,7 @@ if [ $# -eq 0 ]; then
     echo "usage: $0 <program> [args...]"
     echo ""
     echo "example (SIP-protected binaries such as /usr/bin/curl are not affected):"
-    echo "  $0 \"\$(brew --prefix curl)/bin/curl\" -4 -s http://httpbin.org/ip"
+    echo "  $0 \"\$(brew --prefix curl)/bin/curl\" -4 -s https://check.torproject.org/api/ip"
     exit 1
 fi
 
