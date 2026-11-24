@@ -49,5 +49,12 @@ typedef struct {
 _Static_assert(sizeof(socks4_request_t) == 8, "socks4 request header is 8 bytes on the wire");
 _Static_assert(sizeof(socks4_response_t) == 8, "socks4 reply is 8 bytes on the wire");
 
+// log "[toralize] <what>: <strerror(errno)>" to stderr, errno is left as it was
+static inline void toralize_perror(const char *what) {
+    int err = errno;
+    fprintf(stderr, "[toralize] %s: %s\n", what, strerror(err));
+    errno = err;
+}
+
 #endif // TORALIZE_H
 
