@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# test_phase2.sh - test the dyld_insert_libraries dynamic library
+# test_intercept.sh - test the dyld_insert_libraries dynamic library
 #
 # this verifies that our dynamic library properly intercepts connect() calls
 
@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo "========================================"
-echo "phase 2: dynamic library interception test"
+echo "dynamic library interception test"
 echo "========================================"
 echo ""
 
@@ -135,7 +135,7 @@ echo -e "${RED}failed: $FAILED/$TOTAL_TESTS${NC}"
 echo ""
 
 if [ $PASSED -eq $TOTAL_TESTS ]; then
-    echo -e "${GREEN}all tests passed! phase 2 complete.${NC}"
+    echo -e "${GREEN}all tests passed!${NC}"
     echo ""
     echo "the dynamic library successfully intercepts connect() calls"
     echo "and routes them through tor using the socks4 protocol."
