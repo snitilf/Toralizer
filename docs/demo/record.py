@@ -160,7 +160,6 @@ def main():
             "arch": out(["uname", "-m"]),
             "curl": curl_version[1] if len(curl_version) > 1 else None,
             "tor": tor_version[2].rstrip(".") if len(tor_version) > 2 else None,
-            "commit": out(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"]),
         },
         "scenes": scenes,
     }
