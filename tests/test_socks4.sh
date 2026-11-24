@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# test_phase1.sh - test the standalone socks4 client
+# test_socks4.sh - test the standalone socks4 client
 #
 # this verifies that our socks4 protocol implementation works
 # before integrating it into the dynamic library
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo "========================================"
-echo "phase 1: socks4 protocol test"
+echo "socks4 protocol test"
 echo "========================================"
 echo ""
 
@@ -96,7 +96,7 @@ echo ""
 if [ $FAILED -eq 0 ]; then
     echo -e "${GREEN}all tests passed! socks4 protocol implementation works.${NC}"
     echo ""
-    echo "phase 1 complete. ready to proceed to phase 2:"
+    echo "next, build the library and try it:"
     echo "  make clean"
     echo "  make"
     echo "  make test"

@@ -17,7 +17,7 @@ HEADERS = toralize.h
 TEST_SOURCES = test_socks4.c
 TEST_HTTP_SOURCES = test_http.c
 
-# build the dynamic library (phase 2)
+# build the dynamic library
 all: $(TARGET)
 
 $(TARGET): $(SOURCES) $(HEADERS)
@@ -32,7 +32,7 @@ $(TARGET): $(SOURCES) $(HEADERS)
 	@echo "example, with homebrew curl and tor on 127.0.0.1:9050:"
 	@echo "  ./toralize \"\$$(brew --prefix curl)/bin/curl\" -4 -s https://check.torproject.org/api/ip"
 
-# build the test client (phase 1)
+# build the standalone socks4 test client
 $(TEST_CLIENT): $(TEST_SOURCES) $(HEADERS)
 	@echo "building socks4 test client..."
 	$(CC) $(CFLAGS) -o $(TEST_CLIENT) $(TEST_SOURCES)
@@ -44,7 +44,7 @@ $(TEST_CLIENT): $(TEST_SOURCES) $(HEADERS)
 	@echo "example:"
 	@echo "  ./$(TEST_CLIENT) 8.8.8.8 53"
 
-# build the http test client (phase 2)
+# build the http test client
 $(TEST_HTTP): $(TEST_HTTP_SOURCES)
 	@echo "building http test client..."
 	$(CC) $(CFLAGS) -o $(TEST_HTTP) $(TEST_HTTP_SOURCES)
@@ -54,19 +54,23 @@ $(TEST_HTTP): $(TEST_HTTP_SOURCES)
 	@echo "  ./$(TEST_HTTP)                   # direct connection"
 	@echo "  ./toralize ./$(TEST_HTTP)        # through tor"
 
-# phase 1: test socks4 protocol implementation
-phase1: $(TEST_CLIENT)
-	@echo ""
-	@echo "=== running phase 1 tests ==="
-	@echo ""
-	@./tests/test_phase1.sh
+# check build and run prerequisites (needs tor listening on 9050)
+check-env:
+	@./tests/check_env.sh
 
-# phase 2: test dynamic library interception
-phase2: $(TARGET) $(TEST_HTTP)
+# test the socks4 handshake against tor
+test-socks4: $(TEST_CLIENT)
 	@echo ""
-	@echo "=== running phase 2 tests ==="
+	@echo "=== running socks4 tests ==="
 	@echo ""
-	@./tests/test_phase2.sh
+	@./tests/test_socks4.sh
+
+# test that the dynamic library intercepts connect()
+test-intercept: $(TARGET) $(TEST_HTTP)
+	@echo ""
+	@echo "=== running interception tests ==="
+	@echo ""
+	@./tests/test_intercept.sh
 
 # clean build artifacts
 clean:
@@ -86,5 +90,5 @@ test: $(TARGET)
 	@echo "your ip through tor:"
 	@./toralize "$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
 
-.PHONY: all clean test phase1 phase2
+.PHONY: all clean test check-env test-socks4 test-intercept
 

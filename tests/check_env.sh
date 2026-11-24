@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# test_phase0.sh - verify that phase 0 setup is complete
+# check_env.sh - verify that the build and run prerequisites are in place
 #
 # this script checks:
 # - xcode command line tools
 # - homebrew installation
-# - required packages (gcc, make, tor)
+# - required tools (gcc, clang, make, tor)
 # - tor service running
 # - project structure
 
@@ -19,7 +19,7 @@ PASS=0
 FAIL=0
 
 echo "========================================"
-echo "phase 0: prerequisites & setup test"
+echo "toralizer: prerequisites check"
 echo "========================================"
 echo ""
 
@@ -174,7 +174,7 @@ echo -e "${RED}failed: $FAIL${NC}"
 echo ""
 
 if [ $FAIL -eq 0 ]; then
-    echo -e "${GREEN}all tests passed! phase 0 is complete.${NC}"
+    echo -e "${GREEN}all checks passed! the environment is ready.${NC}"
     echo ""
     echo "you can now proceed to build and test:"
     echo "  make"

@@ -1,7 +1,7 @@
 // test_socks4.c
 //
 // standalone socks4 client to test tor proxy connectivity
-// this is phase 1 - proving the socks4 protocol implementation works
+// used to prove the socks4 protocol implementation works before the dylib
 
 #include "toralize.h"
 
