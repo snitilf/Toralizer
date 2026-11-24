@@ -33,3 +33,6 @@ jobs:
 
       - name: Check the routing table against a mock proxy
         run: make EXTRA_CFLAGS=-Werror test-routing
+
+      - name: Check the demo render is fresh
+        run: python3 docs/demo/render.py && git diff --exit-code -- docs/demo
