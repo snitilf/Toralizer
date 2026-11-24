@@ -43,6 +43,7 @@ $ ./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip
 
 The first run is the real address, masked here.
 The second run goes through Tor and comes out of an exit relay.
+The exit address changes between runs.
 The `[toralize]` lines are the hook logging to stderr.
 In the third run SIP removes the injected library from the system curl, so nothing is rerouted and the real address comes back.
 
@@ -159,7 +160,7 @@ Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
   Treat this as a demonstration of the hook, not a privacy tool.
 - Private and LAN IPv4 addresses go to Tor too, and Tor refuses them.
 - The user id is fixed, and Tor isolates streams by SOCKS user id.
-  All toralize traffic shares one circuit and one exit address, which some sites rate-limit.
+  Until Tor rotates the circuit, all toralize traffic leaves from one exit address, which some sites rate-limit.
 - Socket options set before `connect()` are lost, because the descriptor is replaced by the proxy socket.
 - The handshake is blocking and has no timeout, even for a non-blocking socket.
 - The host architecture only, with no universal binary.
@@ -170,7 +171,7 @@ Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 | --- | --- | --- | --- |
 | `tests/check_env.sh` | `make check-env` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | 15/15 |
 | `tests/test_socks4.sh` | `make test-socks4` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
-| `tests/test_intercept.sh` | `make test-intercept` | The library intercepts `test_http`, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
+| `tests/test_intercept.sh` | `make test-intercept` | A direct run of `test_http` works, then the library intercepts it, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
 
 The results are from one run with Tor up, on arm64.
 The tests are shell scripts that count their own checks, not a unit test framework.
