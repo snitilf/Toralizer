@@ -5,7 +5,7 @@
 # this script checks:
 # - xcode command line tools
 # - homebrew installation
-# - required tools (gcc, clang, make, tor)
+# - required tools (clang, make, tor)
 # - tor service running
 # - project structure
 
@@ -60,18 +60,7 @@ else
 fi
 echo ""
 
-# test 3: check gcc
-echo "checking gcc..."
-if command -v gcc &> /dev/null; then
-    GCC_VERSION=$(gcc --version | head -n 1)
-    pass "gcc available: $GCC_VERSION"
-else
-    fail "gcc not found"
-    echo "     run: brew install gcc"
-fi
-echo ""
-
-# test 4: check clang (macOS compiler)
+# test 3: check clang (macOS compiler)
 echo "checking clang..."
 if command -v clang &> /dev/null; then
     CLANG_VERSION=$(clang --version | head -n 1)
@@ -81,7 +70,7 @@ else
 fi
 echo ""
 
-# test 5: check make
+# test 4: check make
 echo "checking make..."
 if command -v make &> /dev/null; then
     MAKE_VERSION=$(make --version | head -n 1)
@@ -92,7 +81,7 @@ else
 fi
 echo ""
 
-# test 6: check tor
+# test 5: check tor
 echo "checking tor..."
 if command -v tor &> /dev/null; then
     TOR_VERSION=$(tor --version | head -n 1)
@@ -103,7 +92,7 @@ else
 fi
 echo ""
 
-# test 7: check if tor service is running
+# test 6: check if tor service is running
 echo "checking tor service..."
 if lsof -nP -iTCP:9050 -sTCP:LISTEN &> /dev/null; then
     TOR_PID=$(lsof -t -nP -iTCP:9050 -sTCP:LISTEN)
@@ -114,7 +103,7 @@ else
 fi
 echo ""
 
-# test 8: test tor connectivity
+# test 7: test tor connectivity
 echo "testing tor connectivity..."
 if nc -z 127.0.0.1 9050 2>/dev/null; then
     pass "can connect to tor SOCKS proxy at 127.0.0.1:9050"
@@ -123,7 +112,7 @@ else
 fi
 echo ""
 
-# test 9: check project structure
+# test 8: check project structure
 echo "checking project structure..."
 
 # get project root directory (parent of tests directory)
@@ -155,7 +144,7 @@ if [ $MISSING_FILES -eq 0 ]; then
 fi
 echo ""
 
-# test 10: check if toralize is executable
+# test 9: check if toralize is executable
 echo "checking toralize permissions..."
 if [ -x "$PROJECT_ROOT/toralize" ]; then
     pass "toralize script is executable"
