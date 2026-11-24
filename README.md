@@ -2,17 +2,17 @@
 
 # Toralizer
 
-### A `connect()` hook for macOS that sends IPv4 TCP through Tor.
+### Reroute a program's IPv4 TCP through Tor, without touching the program.
 
 [Demo](#demo) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Limits](#limits) · [Tests](#tests)
 
 </div>
 
-A macOS dynamic library in C that hooks `connect()` through a dyld interpose entry.
-It reroutes IPv4 TCP connections of command-line programs through Tor with a hand-written SOCKS4 handshake.
-It is injected with `DYLD_INSERT_LIBRARIES`, and the System Integrity Protection limit is documented.
+Toralizer is a macOS dynamic library written in C.
+It hooks `connect()` through a dyld interpose entry and reroutes the IPv4 TCP connections of a command-line program through Tor, using a SOCKS4 handshake written by hand.
+You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled or changed.
 
-Read these three limits first:
+Three limits come first:
 
 - SIP strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
   Use a Homebrew build or a program you compiled yourself.
@@ -94,7 +94,7 @@ What `connect()` does with each kind of destination:
 | --- | --- |
 | IPv4 TCP, not loopback | Through Tor |
 | IPv4 loopback (`127.0.0.0/8`, `0.0.0.0`), `::1`, IPv4-mapped loopback | Direct, untouched |
-| IPv6 TCP, not loopback | Refused with `ENETUNREACH` |
+| IPv6 TCP, not loopback, including `::` and IPv4-mapped addresses that are not loopback | Refused with `ENETUNREACH` |
 | UDP, `AF_UNIX`, any other family or socket type | Direct, untouched |
 | IPv4 TCP while Tor is not running | Fails with `ECONNREFUSED`, never goes direct |
 
@@ -150,14 +150,11 @@ Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
 ## Limits
 
-- SIP removes `DYLD_*` from system binaries (`/usr/bin`, `/bin`, `/sbin`) and from anything started through one, such as `/bin/sh -c`.
-  Binaries with the hardened runtime also ignore the injected library.
+Besides the three above:
+
+- The injected library is also dropped for anything started through a system binary, such as `/bin/sh -c`, and for binaries with the hardened runtime.
 - Only `connect()` is hooked.
   A program that connects with `connectx()` or Network.framework is not rerouted.
-- IPv4 TCP only.
-  IPv6 is refused as described above.
-- SOCKS4 without 4a, so hostnames are resolved by the program before `connect()` and the lookup leaves outside Tor.
-  Treat this as a demonstration of the hook, not a privacy tool.
 - Private and LAN IPv4 addresses go to Tor too, and Tor refuses them.
 - The user id is fixed, and Tor isolates streams by SOCKS user id.
   Until Tor rotates the circuit, all toralize traffic leaves from one exit address, which some sites rate-limit.
