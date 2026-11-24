@@ -168,7 +168,7 @@ Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
 | Script | Run with | Checks | Result |
 | --- | --- | --- | --- |
-| `tests/check_env.sh` | `make check-env` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | TBD |
+| `tests/check_env.sh` | `make check-env` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | 15/15 |
 | `tests/test_socks4.sh` | `make test-socks4` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
 | `tests/test_intercept.sh` | `make test-intercept` | The library intercepts `test_http`, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
 
