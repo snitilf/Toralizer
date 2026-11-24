@@ -4,13 +4,45 @@
 
 ### Reroute a program's IPv4 TCP through Tor, without touching the program.
 
-[Demo](#demo) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Limits](#limits) · [Tests](#tests)
+[How it works](#how-it-works) · [Quick start](#quick-start) · [Limits](#limits) · [Tests](#tests)
 
 </div>
 
 Toralizer is a macOS dynamic library written in C.
 It hooks `connect()` through a dyld interpose entry and reroutes the IPv4 TCP connections of a command-line program through Tor, using a SOCKS4 handshake written by hand.
 You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled or changed.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/demo/demo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/demo/demo-light.svg">
+  <img src="docs/demo/demo-light.svg" alt="A terminal session. Homebrew curl run directly reports IsTor false. The same command with ./toralize in front logs four [toralize] lines and reports IsTor true with a Tor exit address. ./toralize with /usr/bin/curl prints a SIP warning and reports IsTor false again.">
+</picture>
+
+Recorded by `docs/demo/record.py` on macOS 27.2.1, arm64, with Homebrew curl 8.17.0 and Tor 0.4.8.21.
+The commands and their output are the captured run, with the real address masked.
+The window, the prompt and the pacing are added by `docs/demo/render.py`.
+The exit address changes between runs.
+
+<details>
+<summary>The same run as text</summary>
+
+```text
+% /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
+{"IsTor":false,"IP":"204.x.x.x"}
+
+% ./toralize /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
+[toralize] intercepting connection to 116.202.120.181:443
+[toralize] connected to tor proxy at 127.0.0.1:9050
+[toralize] sent socks4 request
+[toralize] connection granted, routing through tor
+{"IsTor":true,"IP":"45.84.107.100"}
+
+% ./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip
+[toralize] warning: /usr/bin/curl is protected by SIP, DYLD_INSERT_LIBRARIES is stripped and the connection will not be rerouted
+{"IsTor":false,"IP":"204.x.x.x"}
+```
+
+</details>
 
 Three limits come first:
 
@@ -24,31 +56,6 @@ Three limits come first:
 
 The hook is `toralize.c` and `socks4.c`, about 200 lines together.
 It needs a Tor daemon on `127.0.0.1:9050`.
-
-## Demo
-
-```text
-$ /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
-{"IsTor":false,"IP":"204.x.x.x"}
-
-$ ./toralize /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
-[toralize] intercepting connection to 116.202.120.181:443
-[toralize] connected to tor proxy at 127.0.0.1:9050
-[toralize] sent socks4 request
-[toralize] connection granted, routing through tor
-{"IsTor":true,"IP":"147.90.235.22"}
-
-$ ./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip
-{"IsTor":false,"IP":"204.x.x.x"}
-```
-
-The first run is the real address, masked here.
-The second run goes through Tor and comes out of an exit relay.
-The exit address changes between runs.
-The `[toralize]` lines are the hook logging to stderr.
-In the third run SIP removes the injected library from the system curl, so nothing is rerouted and the real address comes back.
-
-Run on arm64 with Homebrew curl 8.17.0.
 
 ## How it works
 
