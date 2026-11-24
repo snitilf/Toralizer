@@ -168,28 +168,30 @@ Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
 | Script | Run with | Checks | Result |
 | --- | --- | --- | --- |
-| `tests/test_phase0.sh` | `./tests/test_phase0.sh` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | 16 passed, 0 failed |
-| `tests/test_phase1.sh` | `make phase1` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
-| `tests/test_phase2.sh` | `make phase2` | The library intercepts `test_http`, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
+| `tests/check_env.sh` | `make check-env` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | TBD |
+| `tests/test_socks4.sh` | `make test-socks4` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
+| `tests/test_intercept.sh` | `make test-intercept` | The library intercepts `test_http`, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
 
 The results are from one run with Tor up, on arm64.
 The tests are shell scripts that count their own checks, not a unit test framework.
 All three need a running Tor.
-CI builds the library on macOS and does not run them.
+CI builds the library with `-Werror` on macOS, checks the interpose entry, and checks that the hook logs an interception without Tor.
+It does not run these scripts.
 
 `make test_socks4` and `make test_http` build the two test clients without Tor.
 
 ## Project layout
 
 ```text
-toralize.c         the interposed connect() and the SOCKS4 handshake
-toralize.h         proxy address, SOCKS4 constants, packed request and reply structs
-toralize           wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
-Makefile           builds toralize.dylib and the two test clients, runs the tests
-test_socks4.c      standalone SOCKS4 client, used by phase 1
-test_http.c        plain HTTP client that connects to 1.1.1.1:80, used by phase 2
-tests/             test_phase0.sh, test_phase1.sh, test_phase2.sh
-LICENSE            MIT
+toralize.c          the interposed connect() and the SOCKS4 handshake
+toralize.h          proxy address, SOCKS4 constants, packed request and reply structs
+toralize            wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
+Makefile            builds toralize.dylib and the two test clients, runs the tests
+test_socks4.c       standalone SOCKS4 client, used by `make test-socks4`
+test_http.c         plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
+tests/              check_env.sh, test_socks4.sh, test_intercept.sh
+.github/workflows/  build.yml, the macOS build and hook check
+LICENSE             MIT
 ```
 
 ## License
