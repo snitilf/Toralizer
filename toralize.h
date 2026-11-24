@@ -1,6 +1,6 @@
 // toralize.h
 //
-// header file for Toralizer - tool to route network traffic through Tor
+// header file for Toralizer - tool to route IPv4 TCP through Tor
 // uses DYLD_INSERT_LIBRARIES on macOS to intercept connect() calls
 
 #ifndef TORALIZE_H
@@ -30,21 +30,24 @@
 // socks4 request structure
 // sent to tor proxy to request a connection
 typedef struct {
-    unsigned char vn;       // socks version (4)
-    unsigned char cd;       // command code (1 = CONNECT)
-    unsigned short dstport; // destination port (network byte order)
-    unsigned int dstip;     // destination IP (network byte order)
+    uint8_t vn;       // socks version (4)
+    uint8_t cd;       // command code (1 = CONNECT)
+    uint16_t dstport; // destination port (network byte order)
+    uint32_t dstip;   // destination IP (network byte order)
     // followed by: username (null-terminated string)
 } __attribute__((packed)) socks4_request_t;
 
 // socks4 response structure
 // received from tor proxy after connection request
 typedef struct {
-    unsigned char vn;              // reply version (0)
-    unsigned char cd;              // reply code (90 = granted)
-    unsigned short dstport_unused; // ignored
-    unsigned int dstip_unused;     // ignored
+    uint8_t vn;              // reply version (0)
+    uint8_t cd;              // reply code (90 = granted)
+    uint16_t dstport_unused; // ignored
+    uint32_t dstip_unused;   // ignored
 } __attribute__((packed)) socks4_response_t;
+
+_Static_assert(sizeof(socks4_request_t) == 8, "socks4 request header is 8 bytes on the wire");
+_Static_assert(sizeof(socks4_response_t) == 8, "socks4 reply is 8 bytes on the wire");
 
 #endif // TORALIZE_H
 
