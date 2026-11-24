@@ -184,7 +184,7 @@ Besides the three above:
 | Test | Run with | Needs Tor | Checks | Result |
 | --- | --- | --- | --- | --- |
 | `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
-| `tests/check_env.sh` | `make check-env` | yes | Build tools, Tor listening, project files | 15/15 |
+| `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | no score |
 | `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
 | `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, system curl untouched | 6/6 |
 
