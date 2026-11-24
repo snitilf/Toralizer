@@ -49,6 +49,19 @@ typedef struct {
 _Static_assert(sizeof(socks4_request_t) == 8, "socks4 request header is 8 bytes on the wire");
 _Static_assert(sizeof(socks4_response_t) == 8, "socks4 reply is 8 bytes on the wire");
 
+// informational log lines, silenced by TORALIZE_QUIET (any value except empty or "0")
+// errors and refusals always print
+static inline int toralize_quiet(void) {
+    const char *v = getenv("TORALIZE_QUIET");
+    return v != NULL && v[0] != '\0' && strcmp(v, "0") != 0;
+}
+#define TORALIZE_INFO(...) \
+    do { \
+        if (!toralize_quiet()) { \
+            fprintf(stderr, __VA_ARGS__); \
+        } \
+    } while (0)
+
 // log "[toralize] <what>: <strerror(errno)>" to stderr, errno is left as it was
 static inline void toralize_perror(const char *what) {
     int err = errno;

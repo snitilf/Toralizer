@@ -154,6 +154,9 @@ make clients && ./toralize ./test_http
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
 ```
 
+Set `TORALIZE_QUIET=1` to silence the informational `[toralize]` lines.
+Errors and refusals still print to stderr.
+
 If you see `[toralize] connect to proxy: Connection refused`, Tor is not listening.
 Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
