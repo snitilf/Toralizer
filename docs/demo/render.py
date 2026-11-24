@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 
 # canvas: a macOS terminal window with room around it for its shadow
 W = 868
-MX, MT, MB = 24, 14, 36    # transparent margin: sides, top, bottom
+MX, MT = 24, 14            # transparent margin: sides, top
 RADIUS = 12
 BAR = 36                   # title bar height, holds the three window buttons only
 PADX, PADT, PADB = 16, 12, 16
@@ -33,12 +33,13 @@ MONO = 'ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",m
 LIGHTS = (("#ff5f57", "#e0443e"), ("#febc2e", "#d89e24"), ("#28c840", "#1aab29"))
 
 # the window follows the reader's GitHub theme, as Terminal follows macOS appearance.
-# accent is Tor's purple. depth is a shadow on the light page and a hairline on the dark one
+# accent is Tor's purple. depth is a shadow on the light page and a hairline on the dark one.
+# mb is the bottom margin, tall on the light page to fit the shadow and short on the dark one
 THEMES = {
     "light": dict(bg="#ffffff", bar="#f6f8fa", rule="#d1d9e0", edge=None,
-                  fg="#1f2328", muted="#59636e", accent="#7d4698"),
+                  fg="#1f2328", muted="#59636e", accent="#7d4698", mb=36),
     "dark": dict(bg="#151b23", bar="#212830", rule="#0d1117", edge="#3d444d",
-                 fg="#f0f6fc", muted="#9198a1", accent="#c998e1"),
+                 fg="#f0f6fc", muted="#9198a1", accent="#c998e1", mb=14),
 }
 
 # pacing, in seconds
@@ -184,7 +185,7 @@ def build(session, theme):
     t_end = t_idle + HOLD
     total = round(t_end + FADE_OUT + BLANK, 2)
     win_h = BAR + PADT + (idle_row + 1) * LH + PADB
-    height = MT + win_h + MB
+    height = MT + win_h + c["mb"]
 
     def pct(sec):
         return f"{100 * sec / total:.3f}%"
