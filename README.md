@@ -185,8 +185,8 @@ Besides the three above:
 | --- | --- | --- | --- | --- |
 | `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
 | `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | no score |
-| `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
-| `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, system curl untouched | 6/6 |
+| `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | TBD |
+| `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, Homebrew curl exits through Tor, system curl stays direct with a warning | TBD |
 
 `test_routing` is a C program that the wrapper injects the library into.
 It plays Tor with a small mock proxy on a free local port, selected with `TORALIZE_PROXY_PORT`, so it needs no Tor and no network and a running Tor does not disturb it.

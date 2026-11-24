@@ -1,151 +1,65 @@
 #!/bin/bash
-#
-# test_intercept.sh - test the dyld_insert_libraries dynamic library
-#
-# this verifies that our dynamic library properly intercepts connect() calls
+# runs real programs under ./toralize and checks the hook fires and traffic leaves through Tor
+# needs Tor on 127.0.0.1:9050 and network access
+cd "$(dirname "$0")/.." || exit 1
 
-# colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-echo "========================================"
-echo "dynamic library interception test"
-echo "========================================"
-echo ""
-
-# check if library exists
-if [ ! -f "./toralize.dylib" ]; then
-    echo -e "${RED}error: toralize.dylib not found${NC}"
-    echo "run: make"
+for f in toralize.dylib tests/test_http; do
+    if [ ! -e "$f" ]; then
+        echo "$f not found, run: make && make clients" >&2
+        exit 1
+    fi
+done
+if ! lsof -nP -iTCP:9050 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "tor is not running on port 9050, run: brew services start tor" >&2
     exit 1
 fi
 
-# check if test_http exists
-if [ ! -f "./tests/test_http" ]; then
-    echo -e "${RED}error: tests/test_http not found${NC}"
-    echo "run: make clients"
-    exit 1
-fi
+IP_URL=https://check.torproject.org/api/ip
+passed=0
+total=0
 
-# check if tor is running
-echo "checking tor service..."
-if ! lsof -nP -iTCP:9050 -sTCP:LISTEN &> /dev/null; then
-    echo -e "${RED}error: tor is not running on port 9050${NC}"
-    echo "run: brew services start tor"
-    exit 1
-fi
-echo -e "${GREEN}tor is running${NC}"
-echo ""
+# check <name> <exit status of the condition>, shows `detail` after a failure
+check() {
+    total=$((total + 1))
+    if [ "$2" -eq 0 ]; then
+        echo "pass: $1"
+        passed=$((passed + 1))
+    else
+        echo "FAIL: $1"
+        [ -n "${detail:-}" ] && echo "$detail" | head -5 | sed 's/^/      /'
+    fi
+}
 
-# test 1: verify direct connection works (baseline)
-echo "test 1: direct connection (no interception)"
-echo "----------------------------------------"
-OUTPUT1=$(./tests/test_http 2>&1)
-TEST1_RESULT=$?
-echo "$OUTPUT1" | head -8
-echo ""
+contains() { printf '%s\n' "$1" | grep -qF -- "$2"; }
 
-if [ $TEST1_RESULT -eq 0 ]; then
-    echo -e "${GREEN}[PASS]${NC} test 1: direct connection works"
+# direct and through the hook, with the log lines kept
+detail=$(tests/test_http 2>&1); rc=$?
+check "direct http request works" "$rc"
+
+out=$(./toralize ./tests/test_http 2>&1); rc=$?
+detail=$out
+contains "$out" "[toralize] intercepting connection"; check "hook intercepts the connect" $?
+contains "$out" "[toralize] connected to tor proxy"; check "hook reaches the tor proxy" $?
+contains "$out" "[toralize] connection granted, routing through tor"; check "tor grants the connection" $?
+check "http request through tor works" "$rc"
+
+# /usr/bin/curl is SIP protected: the library is dropped, so the real address shows and the wrapper warns
+out=$(./toralize /usr/bin/curl -4 -s --max-time 30 "$IP_URL" 2>&1)
+detail=$out
+contains "$out" '"IsTor":false'; check "system curl is not rerouted (SIP)" $?
+contains "$out" "is protected by SIP"; check "wrapper warns about the SIP binary" $?
+! contains "$out" "intercepting connection" && ! contains "$out" "connected to tor proxy"
+check "no interception lines for the SIP binary" $?
+
+# a Homebrew build is not protected, so check.torproject.org must see an exit relay
+brew_curl="$(brew --prefix curl 2>/dev/null)/bin/curl"
+if [ -x "$brew_curl" ]; then
+    out=$(./toralize "$brew_curl" -4 -s --max-time 60 "$IP_URL" 2>&1)
+    detail=$out
+    contains "$out" '"IsTor":true'; check "homebrew curl exits through tor (IsTor true)" $?
 else
-    echo -e "${RED}[FAIL]${NC} test 1: direct connection failed"
-fi
-echo ""
-echo ""
-
-# test 2: verify interception happens
-echo "test 2: connection with toralize (interception)"
-echo "----------------------------------------"
-OUTPUT=$(./toralize ./tests/test_http 2>&1)
-TEST2_RESULT=$?
-
-echo "$OUTPUT" | head -20
-echo ""
-
-# check if interception messages are present
-if echo "$OUTPUT" | grep -q "\[toralize\] intercepting connection"; then
-    echo -e "${GREEN}[PASS]${NC} test 2a: interception message found"
-    TEST2A_PASS=1
-else
-    echo -e "${RED}[FAIL]${NC} test 2a: interception message not found"
-    TEST2A_PASS=0
+    echo "skip: homebrew curl exits through tor (homebrew curl not found, run: brew install curl)"
 fi
 
-if echo "$OUTPUT" | grep -q "\[toralize\] connected to tor proxy"; then
-    echo -e "${GREEN}[PASS]${NC} test 2b: connected to tor proxy"
-    TEST2B_PASS=1
-else
-    echo -e "${RED}[FAIL]${NC} test 2b: did not connect to tor proxy"
-    TEST2B_PASS=0
-fi
-
-if echo "$OUTPUT" | grep -q "\[toralize\] connection granted, routing through tor"; then
-    echo -e "${GREEN}[PASS]${NC} test 2c: socks4 connection granted"
-    TEST2C_PASS=1
-else
-    echo -e "${RED}[FAIL]${NC} test 2c: socks4 connection not granted"
-    TEST2C_PASS=0
-fi
-
-if [ $TEST2_RESULT -eq 0 ]; then
-    echo -e "${GREEN}[PASS]${NC} test 2d: http request succeeded"
-    TEST2D_PASS=1
-else
-    echo -e "${RED}[FAIL]${NC} test 2d: http request failed"
-    TEST2D_PASS=0
-fi
-
-echo ""
-
-# test 3: system binaries (sip protected) must NOT be intercepted
-echo "test 3: system binary under sip (/usr/bin/curl)"
-echo "----------------------------------------"
-echo "note: macOS strips DYLD_INSERT_LIBRARIES for sip-protected binaries"
-echo "      such as /usr/bin/curl, so toralize cannot intercept them."
-echo ""
-OUTPUT3=$(./toralize /usr/bin/curl -4 -s --max-time 10 http://1.1.1.1 2>&1)
-echo "$OUTPUT3" | head -5
-echo ""
-
-if echo "$OUTPUT3" | grep -q "\[toralize\]"; then
-    echo -e "${RED}[FAIL]${NC} test 3: /usr/bin/curl was intercepted (unexpected)"
-    TEST3_PASS=0
-else
-    echo -e "${GREEN}[PASS]${NC} test 3: /usr/bin/curl was not intercepted (sip, expected)"
-    TEST3_PASS=1
-fi
-echo ""
-echo -e "${YELLOW}[INFO]${NC} use homebrew or self-built binaries for interception"
-echo ""
-
-# summary
-echo "========================================"
-echo "test summary"
-echo "========================================"
-
-TOTAL_TESTS=6
-PASSED=$((TEST2A_PASS + TEST2B_PASS + TEST2C_PASS + TEST2D_PASS + TEST3_PASS))
-if [ $TEST1_RESULT -eq 0 ]; then ((PASSED++)); fi
-
-echo -e "${GREEN}passed: $PASSED/$TOTAL_TESTS${NC}"
-FAILED=$((TOTAL_TESTS - PASSED))
-echo -e "${RED}failed: $FAILED/$TOTAL_TESTS${NC}"
-echo ""
-
-if [ $PASSED -eq $TOTAL_TESTS ]; then
-    echo -e "${GREEN}all tests passed!${NC}"
-    echo ""
-    echo "the dynamic library successfully intercepts connect() calls"
-    echo "and routes them through tor using the socks4 protocol."
-    echo ""
-    echo "limitations:"
-    echo "- system binaries (protected by sip) cannot be intercepted"
-    echo "- use with custom-compiled applications or scripts"
-    exit 0
-else
-    echo -e "${RED}some tests failed.${NC}"
-    exit 1
-fi
-
+echo "$passed/$total intercept checks passed"
+[ "$passed" -eq "$total" ]
