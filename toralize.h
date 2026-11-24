@@ -56,5 +56,12 @@ static inline void toralize_perror(const char *what) {
     errno = err;
 }
 
+// socks4.c: run the socks4 CONNECT handshake on `fd`, already connected to the proxy
+// dstip_be and dstport_be are the destination in network byte order
+// returns 0 once the proxy grants the request, then `fd` carries the tunneled stream
+// returns -1 with errno set on any failure, and leaves `fd` open for the caller to close
+// failures are logged to stderr with the "[toralize]" prefix
+int socks4_handshake(int fd, uint32_t dstip_be, uint16_t dstport_be);
+
 #endif // TORALIZE_H
 

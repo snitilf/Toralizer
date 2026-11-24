@@ -12,7 +12,7 @@ TEST_CLIENT = test_socks4
 TEST_HTTP = test_http
 
 # source files
-SOURCES = toralize.c
+SOURCES = toralize.c socks4.c
 HEADERS = toralize.h
 TEST_SOURCES = test_socks4.c
 TEST_HTTP_SOURCES = test_http.c
@@ -33,9 +33,9 @@ $(TARGET): $(SOURCES) $(HEADERS)
 	@echo "  ./toralize \"\$$(brew --prefix curl)/bin/curl\" -4 -s https://check.torproject.org/api/ip"
 
 # build the standalone socks4 test client
-$(TEST_CLIENT): $(TEST_SOURCES) $(HEADERS)
+$(TEST_CLIENT): $(TEST_SOURCES) socks4.c $(HEADERS)
 	@echo "building socks4 test client..."
-	$(CC) $(CFLAGS) -o $(TEST_CLIENT) $(TEST_SOURCES)
+	$(CC) $(CFLAGS) -o $(TEST_CLIENT) $(TEST_SOURCES) socks4.c
 	@echo "built $(TEST_CLIENT)"
 	@echo ""
 	@echo "usage:"
