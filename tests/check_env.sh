@@ -1,6 +1,6 @@
 #!/bin/bash
 # preflight for the Tor tests: build tools, tor installed and listening, Homebrew curl
-# prints one line per check and exits 1 if any is missing, it does not score anything
+# prints one line per check and exits 1 if any is missing
 cd "$(dirname "$0")/.." || exit 1
 
 missing=0
