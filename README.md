@@ -83,7 +83,7 @@ make
 ```
 
 The answer contains `"IsTor":true`, and `-4` keeps curl on IPv4.
-To run one of your own binaries instead, use `make clients && ./toralize ./tests/test_http`.
+To try it on the bundled HTTP test client, run `make clients && ./toralize ./tests/test_http`.
 
 | Variable | Effect |
 | --- | --- |
