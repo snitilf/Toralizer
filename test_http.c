@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-int main() {
+int main(void) {
     // we'll connect to cloudflare (1.1.1.1:80) to test
     const char *host_ip = "1.1.1.1";
     int port = 80;
