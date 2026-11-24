@@ -30,3 +30,6 @@ jobs:
           out=$(./toralize ./tests/test_http 2>&1 || true)
           echo "$out"
           echo "$out" | grep -F '[toralize] intercepting connection to'
+
+      - name: Check the routing table against a mock proxy
+        run: make EXTRA_CFLAGS=-Werror test-routing
