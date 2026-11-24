@@ -62,6 +62,18 @@ static inline int toralize_quiet(void) {
         } \
     } while (0)
 
+// port of the tor proxy: PROXYPORT, or TORALIZE_PROXY_PORT when set (9150 for Tor Browser)
+// returns 0 when the variable is set to something that is not a port number
+static inline int toralize_proxy_port(void) {
+    const char *v = getenv("TORALIZE_PROXY_PORT");
+    if (v == NULL || v[0] == '\0') {
+        return PROXYPORT;
+    }
+    char *end;
+    long port = strtol(v, &end, 10);
+    return (*end == '\0' && port >= 1 && port <= 65535) ? (int)port : 0;
+}
+
 // log "[toralize] <what>: <strerror(errno)>" to stderr, errno is left as it was
 static inline void toralize_perror(const char *what) {
     int err = errno;

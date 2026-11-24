@@ -1,7 +1,7 @@
 // toralize.c
 //
 // dyld interpose library that reroutes IPv4 TCP connect() calls through
-// tor's SOCKS4 proxy (127.0.0.1:9050)
+// tor's SOCKS4 proxy (127.0.0.1:9050, or the port in TORALIZE_PROXY_PORT)
 //
 // routing policy:
 //   AF_INET stream, non-loopback    -> tor (socks4 CONNECT)
@@ -49,6 +49,13 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     inet_ntop(AF_INET, &dstip, ipstr, sizeof(ipstr));
     TORALIZE_INFO("[toralize] intercepting connection to %s:%d\n", ipstr, ntohs(dstport));
 
+    int proxy_port = toralize_proxy_port();
+    if (proxy_port == 0) {
+        fprintf(stderr, "[toralize] error: TORALIZE_PROXY_PORT is not a port number\n");
+        errno = EINVAL;
+        return -1;
+    }
+
     // remember the caller's fd state, dup2 below replaces it with the proxy socket's
     int status_flags = fcntl(sockfd, F_GETFL);
     int fd_flags = fcntl(sockfd, F_GETFD);
@@ -66,14 +73,14 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     struct sockaddr_in proxy_addr;
     memset(&proxy_addr, 0, sizeof(proxy_addr));
     proxy_addr.sin_family = AF_INET;
-    proxy_addr.sin_port = htons(PROXYPORT);
+    proxy_addr.sin_port = htons((uint16_t)proxy_port);
     proxy_addr.sin_addr.s_addr = inet_addr(PROXY);
 
     if (__connect(proxy_fd, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
         toralize_perror("connect to proxy");
         return fail(proxy_fd);
     }
-    TORALIZE_INFO("[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
+    TORALIZE_INFO("[toralize] connected to tor proxy at %s:%d\n", PROXY, proxy_port);
 
     if (socks4_handshake(proxy_fd, dstip, dstport) < 0) {
         return fail(proxy_fd);

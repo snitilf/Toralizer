@@ -22,7 +22,7 @@ Three limits come first:
 - SOCKS4 has no hostnames, so the program resolves them itself, outside Tor.
   DNS lookups leak, and this is not a privacy tool.
 
-The hook is `toralize.c` and `socks4.c`, under 200 lines together.
+The hook is `toralize.c` and `socks4.c`, about 200 lines together.
 It needs a Tor daemon on `127.0.0.1:9050`.
 
 ## Demo
@@ -158,6 +158,9 @@ DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
 
 Set `TORALIZE_QUIET=1` to silence the informational `[toralize]` lines.
 Errors and refusals still print to stderr.
+
+Set `TORALIZE_PROXY_PORT` to reach Tor on another port of `127.0.0.1`, for example `9150` for Tor Browser.
+A value that is not a port number makes the connection fail with `EINVAL`.
 
 If you see `[toralize] connect to proxy: Connection refused`, Tor is not listening.
 Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
