@@ -23,8 +23,8 @@ if [ ! -f "./toralize.dylib" ]; then
 fi
 
 # check if test_http exists
-if [ ! -f "./test_http" ]; then
-    echo -e "${RED}error: test_http not found${NC}"
+if [ ! -f "./tests/test_http" ]; then
+    echo -e "${RED}error: tests/test_http not found${NC}"
     echo "run: make clients"
     exit 1
 fi
@@ -42,7 +42,7 @@ echo ""
 # test 1: verify direct connection works (baseline)
 echo "test 1: direct connection (no interception)"
 echo "----------------------------------------"
-OUTPUT1=$(./test_http 2>&1)
+OUTPUT1=$(./tests/test_http 2>&1)
 TEST1_RESULT=$?
 echo "$OUTPUT1" | head -8
 echo ""
@@ -58,7 +58,7 @@ echo ""
 # test 2: verify interception happens
 echo "test 2: connection with toralize (interception)"
 echo "----------------------------------------"
-OUTPUT=$(./toralize ./test_http 2>&1)
+OUTPUT=$(./toralize ./tests/test_http 2>&1)
 TEST2_RESULT=$?
 
 echo "$OUTPUT" | head -20

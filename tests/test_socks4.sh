@@ -17,8 +17,8 @@ echo "========================================"
 echo ""
 
 # check if test client exists
-if [ ! -f "./test_socks4" ]; then
-    echo -e "${RED}error: test_socks4 not found${NC}"
+if [ ! -f "./tests/test_socks4" ]; then
+    echo -e "${RED}error: tests/test_socks4 not found${NC}"
     echo "run: make clients"
     exit 1
 fi
@@ -36,7 +36,7 @@ echo ""
 # test 1: connect to google dns (8.8.8.8:53)
 echo "test 1: connecting to 8.8.8.8:53 (google dns) through tor"
 echo "----------------------------------------"
-./test_socks4 8.8.8.8 53
+./tests/test_socks4 8.8.8.8 53
 TEST1_RESULT=$?
 echo ""
 
@@ -51,7 +51,7 @@ echo ""
 # test 2: connect to cloudflare dns (1.1.1.1:53)
 echo "test 2: connecting to 1.1.1.1:53 (cloudflare dns) through tor"
 echo "----------------------------------------"
-./test_socks4 1.1.1.1 53
+./tests/test_socks4 1.1.1.1 53
 TEST2_RESULT=$?
 echo ""
 
@@ -66,7 +66,7 @@ echo ""
 # test 3: connect to http port (1.1.1.1:80)
 echo "test 3: connecting to 1.1.1.1:80 (http) through tor"
 echo "----------------------------------------"
-./test_socks4 1.1.1.1 80
+./tests/test_socks4 1.1.1.1 80
 TEST3_RESULT=$?
 echo ""
 

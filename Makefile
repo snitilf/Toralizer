@@ -7,8 +7,8 @@ TARGET = toralize.dylib
 SOURCES = toralize.c socks4.c
 HEADERS = toralize.h
 
-TEST_CLIENT = test_socks4
-TEST_HTTP = test_http
+TEST_CLIENT = tests/test_socks4
+TEST_HTTP = tests/test_http
 
 all: $(TARGET)
 

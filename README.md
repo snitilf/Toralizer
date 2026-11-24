@@ -148,7 +148,7 @@ Other ways to run it:
 make test
 
 # one of your own binaries, no Homebrew curl needed
-make clients && ./toralize ./test_http
+make clients && ./toralize ./tests/test_http
 
 # what the wrapper does
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
@@ -194,13 +194,14 @@ It does not run these scripts.
 <summary>Project layout</summary>
 
 ```text
-toralize.c          the interposed connect() and the SOCKS4 handshake
+toralize.c          the interposed connect(), routing and proxy socket handling
+socks4.c            the SOCKS4 handshake, shared by the library and the test client
 toralize.h          proxy address, SOCKS4 constants, packed request and reply structs
 toralize            wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
 Makefile            builds toralize.dylib and the two test clients, runs the tests
-test_socks4.c       standalone SOCKS4 client, used by `make test-socks4`
-test_http.c         plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
 tests/              check_env.sh, test_socks4.sh, test_intercept.sh
+tests/test_socks4.c standalone SOCKS4 client, used by `make test-socks4`
+tests/test_http.c   plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
 .github/workflows/  build.yml, the macOS build and hook check
 LICENSE             MIT
 ```
