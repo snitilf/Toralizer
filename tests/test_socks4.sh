@@ -19,7 +19,7 @@ echo ""
 # check if test client exists
 if [ ! -f "./test_socks4" ]; then
     echo -e "${RED}error: test_socks4 not found${NC}"
-    echo "run: make test_socks4"
+    echo "run: make clients"
     exit 1
 fi
 

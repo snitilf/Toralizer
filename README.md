@@ -139,7 +139,7 @@ Other ways to run it:
 make test
 
 # one of your own binaries, no Homebrew curl needed
-make test_http && ./toralize ./test_http
+make clients && ./toralize ./test_http
 
 # what the wrapper does
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
@@ -179,7 +179,7 @@ All three need a running Tor.
 CI builds the library with `-Werror` on macOS, checks the interpose entry, and checks that the hook logs an interception without Tor.
 It does not run these scripts.
 
-`make test_socks4` and `make test_http` build the two test clients without Tor.
+`make clients` builds the two test clients without Tor.
 
 ## Project layout
 
