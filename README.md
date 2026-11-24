@@ -16,12 +16,13 @@ Three limits come first:
 
 - SIP strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
   Use a Homebrew build or a program you compiled yourself.
+  The wrapper prints a warning for such a program and still runs it.
 - IPv4 TCP only.
   Non-loopback IPv6 TCP is refused, and UDP and Unix sockets are left alone.
 - SOCKS4 has no hostnames, so the program resolves them itself, outside Tor.
   DNS lookups leak, and this is not a privacy tool.
 
-The whole hook is `toralize.c`, under 200 lines.
+The hook is `toralize.c` and `socks4.c`, under 200 lines together.
 It needs a Tor daemon on `127.0.0.1:9050`.
 
 ## Demo
@@ -51,7 +52,7 @@ Run on arm64 with Homebrew curl 8.17.0.
 
 ## How it works
 
-1. `./toralize` sets `DYLD_INSERT_LIBRARIES` to `toralize.dylib` and runs your command.
+1. `./toralize` puts `toralize.dylib` in front of any existing `DYLD_INSERT_LIBRARIES` and runs your command.
    dyld loads the library into the process before `main`.
 2. The library has an entry in its `__interpose` section that pairs `toralize_connect` with `connect`.
    dyld rebinds every call to `connect()` in the other loaded images to it.
@@ -100,7 +101,8 @@ curl falls back to IPv4 on its own.
   ```
 
 - Protocol: the SOCKS4 request and reply are packed structs in `toralize.h`, with no SOCKS library.
-  The request is an 8-byte header and the user id `toralizer`.
+  The request is an 8-byte header and the user id `toralizer`, sent in one write.
+  `socks4_handshake()` in `socks4.c` runs it, and the test client calls the same function.
 - Raw connect: the hook calls the `__connect` stub from libsystem_kernel, for the proxy socket and for the connections it lets through.
   No other interposer in the process sees them.
 - Proxy socket: each connection gets a fresh blocking socket, so the handshake works even when the caller's socket is non-blocking.
