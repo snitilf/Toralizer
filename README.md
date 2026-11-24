@@ -76,18 +76,6 @@ program                   toralize.dylib                     tor
    | read/write(fd) ... carried through tor to dst:443        |
 ```
 
-Some details:
-
-- The request and reply are packed structs in `toralize.h`, with no SOCKS library.
-- The replacement calls the raw `__connect` symbol from libsystem_kernel, both for the proxy socket and for connections it lets through, so no other interposer in the process sees them.
-- Every failure path closes the proxy socket and sets `errno` before it returns `-1`.
-- The entry is visible in the built library:
-
-  ```text
-  $ nm -m toralize.dylib | grep __interpose
-  0000000000004080 (__DATA_CONST,__interpose) non-external __interpose_connect
-  ```
-
 What `connect()` does with each kind of destination:
 
 | Destination | Result |
@@ -100,6 +88,27 @@ What `connect()` does with each kind of destination:
 
 IPv6 is refused instead of passed through so a dual-stack program cannot leave around Tor by accident.
 curl falls back to IPv4 on its own.
+
+## Under the hood
+
+- Interpose: dyld applies the `__interpose` entry to every loaded image except the library itself.
+  The entry is visible in the built library:
+
+  ```text
+  $ nm -m toralize.dylib | grep __interpose
+  0000000000004080 (__DATA_CONST,__interpose) non-external __interpose_connect
+  ```
+
+- Protocol: the SOCKS4 request and reply are packed structs in `toralize.h`, with no SOCKS library.
+  The request is an 8-byte header and the user id `toralizer`.
+- Raw connect: the hook calls the `__connect` stub from libsystem_kernel, for the proxy socket and for the connections it lets through.
+  No other interposer in the process sees them.
+- Proxy socket: each connection gets a fresh blocking socket, so the handshake works even when the caller's socket is non-blocking.
+- Reply: it reads all 8 bytes with `MSG_WAITALL` and accepts only version 0 with code 90.
+- Flags: after `dup2()` it puts back the caller's status flags (`O_NONBLOCK`) and descriptor flags (`FD_CLOEXEC`).
+- Errors: every failure between opening the proxy socket and `dup2()` closes that socket, sets `errno` and returns `-1`.
+  A failed `socket()` or a failed read of the caller's flags returns `-1` before there is a proxy socket to close.
+  If restoring the flags fails after `dup2()`, the call returns `-1`, but the descriptor already is the Tor socket and stays open.
 
 ## Quick start
 
@@ -166,9 +175,9 @@ Besides the three above:
 
 | Script | Run with | Checks | Result |
 | --- | --- | --- | --- |
-| `tests/check_env.sh` | `make check-env` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | 15/15 |
-| `tests/test_socks4.sh` | `make test-socks4` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
-| `tests/test_intercept.sh` | `make test-intercept` | A direct run of `test_http` works, then the library intercepts it, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
+| `tests/check_env.sh` | `make check-env` | Build tools, Tor listening, project files | 15/15 |
+| `tests/test_socks4.sh` | `make test-socks4` | SOCKS4 client gets a grant for 3 destinations | 3/3 |
+| `tests/test_intercept.sh` | `make test-intercept` | Hook fires, Tor grants, HTTP works, system curl untouched | 6/6 |
 
 The results are from one run with Tor up, on arm64.
 The tests are shell scripts that count their own checks, not a unit test framework.
@@ -178,7 +187,8 @@ It does not run these scripts.
 
 `make clients` builds the two test clients without Tor.
 
-## Project layout
+<details>
+<summary>Project layout</summary>
 
 ```text
 toralize.c          the interposed connect() and the SOCKS4 handshake
@@ -191,6 +201,8 @@ tests/              check_env.sh, test_socks4.sh, test_intercept.sh
 .github/workflows/  build.yml, the macOS build and hook check
 LICENSE             MIT
 ```
+
+</details>
 
 ## License
 
