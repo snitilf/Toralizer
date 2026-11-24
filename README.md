@@ -79,7 +79,7 @@ program                   toralize.dylib                     tor
 Some details:
 
 - The request and reply are packed structs in `toralize.h`, with no SOCKS library.
-- The replacement calls the raw `__connect` symbol from libsystem_kernel, both for the proxy socket and for connections it lets through, so it never re-enters itself.
+- The replacement calls the raw `__connect` symbol from libsystem_kernel, both for the proxy socket and for connections it lets through, so no other interposer in the process sees them.
 - Every failure path closes the proxy socket and sets `errno` before it returns `-1`.
 - The entry is visible in the built library:
 
