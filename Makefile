@@ -3,7 +3,7 @@
 
 # compiler and flags
 CC = clang
-CFLAGS = -Wall -Wextra -fPIC
+CFLAGS = -Wall -Wextra -fPIC $(EXTRA_CFLAGS)
 LDFLAGS = -dynamiclib
 
 # target library name
