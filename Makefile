@@ -60,7 +60,14 @@ demo: $(TARGET)
 	@echo "your ip through tor:"
 	@./toralize "$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
 
+# the README animation: capture needs tor on 127.0.0.1:9050, render needs only session.json
+demo-record: $(TARGET)
+	@python3 docs/demo/record.py
+
+demo-render:
+	@python3 docs/demo/render.py
+
 clean:
 	rm -f $(TARGET) $(TEST_CLIENT) $(TEST_HTTP) $(TEST_ROUTING)
 
-.PHONY: all clients clean test demo test-routing check-env test-socks4 test-intercept
+.PHONY: all clients clean test demo demo-record demo-render test-routing check-env test-socks4 test-intercept
