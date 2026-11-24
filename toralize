@@ -15,7 +15,8 @@ if [ ! -f "$lib" ]; then
 fi
 
 # macOS strips DYLD_INSERT_LIBRARIES for SIP-protected programs, so warn and still run it
-prog=$(command -v -- "$1" || true)
+# type -P skips shell builtins, so "echo" resolves to /bin/echo as exec will run it
+prog=$(type -P -- "$1" || true)
 if [ -n "$prog" ]; then
     case "$prog" in
         /usr/bin/*|/bin/*|/sbin/*|/usr/sbin/*|/System/*) protected=1 ;;
