@@ -21,11 +21,11 @@ You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled o
   <img src="docs/demo/demo-light.svg" alt="A terminal session. Homebrew curl run directly reports IsTor false. The same command with ./toralize in front logs four [toralize] lines and reports IsTor true with a Tor exit address. ./toralize with /usr/bin/curl prints a SIP warning and reports IsTor false again.">
 </picture>
 
-Captured with `docs/demo/record.py` on macOS 27.2.1 (arm64), Homebrew curl 8.17.0 and Tor 0.4.8.21, real address masked.
+Captured with `docs/demo/record.py` on macOS 27.2.1 (arm64), with the real address masked.
 
 Three limits come first:
 
-- SIP strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
+- System Integrity Protection (SIP) strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
   Use a Homebrew build or a program you compiled yourself.
   The wrapper prints a warning for such a program and still runs it.
 - IPv4 TCP only.
@@ -83,7 +83,7 @@ curl falls back to IPv4 on its own.
 
   ```text
   $ nm -m toralize.dylib | grep __interpose
-  0000000000004080 (__DATA_CONST,__interpose) non-external __interpose_connect
+  0000000000004098 (__DATA_CONST,__interpose) non-external __interpose_connect
   ```
 
 - Protocol: the SOCKS4 request and reply are packed structs in `toralize.h`, with no SOCKS library.
@@ -167,7 +167,7 @@ Besides the three above:
 | Test | Run with | Needs Tor | Checks | Result |
 | --- | --- | --- | --- | --- |
 | `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
-| `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | no score |
+| `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | ready |
 | `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
 | `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, Homebrew curl exits through Tor, system curl stays direct with a warning | 9/9 |
 
