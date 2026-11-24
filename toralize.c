@@ -77,7 +77,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
 
     // socks4 request: fixed header followed by the null-terminated user id
     unsigned char buf[sizeof(socks4_request_t) + sizeof(USERNAME)];
-    socks4_request_t req = { .vn = 4, .cd = CONNECT, .dstport = dstport, .dstip = dstip };
+    socks4_request_t req = { .vn = 4, .cd = SOCKS4_CONNECT, .dstport = dstport, .dstip = dstip };
     memcpy(buf, &req, sizeof(req));
     memcpy(buf + sizeof(req), USERNAME, sizeof(USERNAME));
     ssize_t sent = send(proxy_fd, buf, sizeof(buf), 0);
@@ -100,7 +100,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
         fprintf(stderr, "[toralize] error: bad socks4 reply version %d\n", resp.vn);
         return fail(proxy_fd, EPROTO);
     }
-    if (resp.cd != GRANTED) {
+    if (resp.cd != SOCKS4_GRANTED) {
         fprintf(stderr, "[toralize] error: tor proxy denied connection (code %d)\n", resp.cd);
         return fail(proxy_fd, ECONNREFUSED);
     }

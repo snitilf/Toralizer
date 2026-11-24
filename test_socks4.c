@@ -58,12 +58,12 @@ int main(int argc, char *argv[]) {
     printf("[3] building socks4 request...\n");
     socks4_request_t req;
     req.vn = 4;                                    // socks version 4
-    req.cd = 1;                                    // command: connect
+    req.cd = SOCKS4_CONNECT;                       // command: connect
     req.dstport = htons(dest_port_int);            // destination port (network byte order)
     req.dstip = inet_addr(dest_ip_str);            // destination ip (network byte order)
 
     printf("    version: 4\n");
-    printf("    command: 1 (connect)\n");
+    printf("    command: %d (connect)\n", SOCKS4_CONNECT);
     printf("    dstport: %d (0x%04x in network order)\n", dest_port_int, req.dstport);
     printf("    dstip: %s (0x%08x in network order)\n", dest_ip_str, req.dstip);
     printf("\n");
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     printf("    sent %zd bytes (header)\n", sent);
-    
+
     // send the username (null-terminated string)
     const char *username = USERNAME;
     ssize_t username_len = strlen(username) + 1; // include null terminator
@@ -106,8 +106,8 @@ int main(int argc, char *argv[]) {
 
     // step 6: check response code
     printf("[6] checking response...\n");
-    if (resp.cd == 90) {
-        printf("    SUCCESS! response code 90 = request granted\n");
+    if (resp.cd == SOCKS4_GRANTED) {
+        printf("    SUCCESS! response code %d = request granted\n", SOCKS4_GRANTED);
         printf("    connection established through tor\n\n");
         printf("=== test passed ===\n");
         printf("socks4 protocol implementation is working correctly\n");
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     } else {
         printf("    FAILED! response code %d = request denied\n\n", resp.cd);
         printf("socks4 error codes:\n");
-        printf("  90 = request granted\n");
+        printf("  %d = request granted\n", SOCKS4_GRANTED);
         printf("  91 = request rejected or failed\n");
         printf("  92 = request failed (no identd running)\n");
         printf("  93 = request failed (identd verification failed)\n");
