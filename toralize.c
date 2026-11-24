@@ -14,8 +14,8 @@
 #include <fcntl.h>
 #include <stddef.h>
 
-// raw connect syscall wrapper from libsystem_kernel
-// the interposed connect() would call back into us, this one does not
+// raw connect stub from libsystem_kernel, called directly so that no other
+// interposer in the process sees the proxy's own connect or the pass-throughs
 extern int __connect(int, const struct sockaddr *, socklen_t);
 
 static int toralize_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
