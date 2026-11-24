@@ -4,12 +4,15 @@
 
 ### Reroute a program's IPv4 TCP through Tor, without touching the program.
 
+[![build](https://img.shields.io/github/actions/workflow/status/snitilf/Toralizer/build.yml?branch=main&label=build)](https://github.com/snitilf/Toralizer/actions/workflows/build.yml)
+[![license](https://img.shields.io/github/license/snitilf/Toralizer?label=license)](LICENSE)
+
 [How it works](#how-it-works) · [Quick start](#quick-start) · [Limits](#limits) · [Tests](#tests)
 
 </div>
 
-Toralizer is a macOS dynamic library written in C.
-It hooks `connect()` through a dyld interpose entry and reroutes the IPv4 TCP connections of a command-line program through Tor, using a SOCKS4 handshake written by hand.
+Toralizer is a macOS dynamic library in C that hooks `connect()` through a dyld interpose entry.
+It reroutes the IPv4 TCP connections of a command-line program through Tor, using a SOCKS4 handshake written by hand.
 You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled or changed.
 
 <picture>
@@ -159,6 +162,10 @@ make demo
 # one of your own binaries, no Homebrew curl needed
 make clients && ./toralize ./tests/test_http
 
+# record the README animation again, with Tor running, then redraw it from the capture
+make demo-record
+make demo-render
+
 # what the wrapper does
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
 ```
@@ -192,8 +199,8 @@ Besides the three above:
 | --- | --- | --- | --- | --- |
 | `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
 | `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | no score |
-| `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | TBD |
-| `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, Homebrew curl exits through Tor, system curl stays direct with a warning | TBD |
+| `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
+| `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, Homebrew curl exits through Tor, system curl stays direct with a warning | 9/9 |
 
 `test_routing` is a C program that the wrapper injects the library into.
 It plays Tor with a small mock proxy on a free local port, selected with `TORALIZE_PROXY_PORT`, so it needs no Tor and no network and a running Tor does not disturb it.
@@ -201,7 +208,7 @@ It checks that the mock grants and data flows, that proxy code 91, a short reply
 It also checks that loopback, UDP and `AF_UNIX` connections never reach the proxy, that non-loopback IPv6 gets `ENETUNREACH`, and that `O_NONBLOCK` and `FD_CLOEXEC` survive.
 The other three are shell scripts that count their own checks, not a unit test framework, and they need a running Tor.
 Their results are from one run with Tor up, on arm64.
-CI builds the library with `-Werror` on macOS, checks the interpose entry, checks that the hook logs an interception without Tor, and runs `make test-routing`.
+CI builds the library with `-Werror` on macOS, checks the interpose entry, checks that the hook logs an interception without Tor, runs `make test-routing`, and checks that the demo SVGs match `docs/demo/session.json`.
 It does not run the Tor scripts.
 
 `make test` runs `test-routing`, then the three Tor scripts in the order of the table, and stops at the first failure.
@@ -215,11 +222,12 @@ toralize.c            the interposed connect(), routing and proxy socket handlin
 socks4.c              the SOCKS4 handshake, shared by the library and the test client
 toralize.h            proxy address, SOCKS4 constants, packed request and reply structs
 toralize              wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
-Makefile              builds toralize.dylib and the test programs, runs the tests
+Makefile              builds toralize.dylib and the test programs, runs the tests and the demo
 tests/                check_env.sh, test_socks4.sh, test_intercept.sh
 tests/test_routing.c  routing table test with a mock SOCKS4 proxy, used by `make test-routing`
 tests/test_socks4.c   standalone SOCKS4 client, used by `make test-socks4`
 tests/test_http.c     plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
+docs/demo/            record.py captures the demo run into session.json, render.py draws it as demo-light.svg and demo-dark.svg
 .github/workflows/    build.yml, the macOS build and hook check
 LICENSE               MIT
 ```
