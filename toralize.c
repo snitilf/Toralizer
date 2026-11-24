@@ -117,6 +117,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     // dup2 gave the fd the proxy socket's flags, put back the caller's
     // (O_NONBLOCK in particular) and its close-on-exec setting
     if (fcntl(sockfd, F_SETFL, status_flags) < 0 || fcntl(sockfd, F_SETFD, fd_flags) < 0) {
+        // no fail() here: the fd already is the tor socket and the caller keeps it
         perror("[toralize] restore fd flags");
         return -1;
     }
