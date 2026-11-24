@@ -42,11 +42,18 @@ test-socks4: $(TEST_CLIENT)
 test-intercept: $(TARGET) $(TEST_HTTP)
 	@./tests/test_intercept.sh
 
+# everything: test-routing runs without tor, the rest need tor on 127.0.0.1:9050
+test:
+	@$(MAKE) --no-print-directory test-routing
+	@$(MAKE) --no-print-directory check-env
+	@$(MAKE) --no-print-directory test-socks4
+	@$(MAKE) --no-print-directory test-intercept
+
 # real address vs tor address, with homebrew curl (/usr/bin/curl is SIP-protected)
 BREW_CURL = $(shell brew --prefix curl 2>/dev/null)/bin/curl
 TEST_URL = https://check.torproject.org/api/ip
 
-test: $(TARGET)
+demo: $(TARGET)
 	@test -x "$(BREW_CURL)" || { echo "homebrew curl not found, run: brew install curl"; exit 1; }
 	@echo "your real ip:"
 	@"$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
@@ -56,4 +63,4 @@ test: $(TARGET)
 clean:
 	rm -f $(TARGET) $(TEST_CLIENT) $(TEST_HTTP) $(TEST_ROUTING)
 
-.PHONY: all clients clean test test-routing check-env test-socks4 test-intercept
+.PHONY: all clients clean test demo test-routing check-env test-socks4 test-intercept
