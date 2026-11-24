@@ -181,17 +181,21 @@ Besides the three above:
 
 ## Tests
 
-| Script | Run with | Checks | Result |
-| --- | --- | --- | --- |
-| `tests/check_env.sh` | `make check-env` | Build tools, Tor listening, project files | 15/15 |
-| `tests/test_socks4.sh` | `make test-socks4` | SOCKS4 client gets a grant for 3 destinations | 3/3 |
-| `tests/test_intercept.sh` | `make test-intercept` | Hook fires, Tor grants, HTTP works, system curl untouched | 6/6 |
+| Test | Run with | Needs Tor | Checks | Result |
+| --- | --- | --- | --- | --- |
+| `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
+| `tests/check_env.sh` | `make check-env` | yes | Build tools, Tor listening, project files | 15/15 |
+| `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
+| `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, system curl untouched | 6/6 |
 
-The results are from one run with Tor up, on arm64.
-The tests are shell scripts that count their own checks, not a unit test framework.
-All three need a running Tor.
-CI builds the library with `-Werror` on macOS, checks the interpose entry, and checks that the hook logs an interception without Tor.
-It does not run these scripts.
+`test_routing` is a C program that the wrapper injects the library into.
+It plays Tor with a small mock proxy on a free local port, selected with `TORALIZE_PROXY_PORT`, so it needs no Tor and no network and a running Tor does not disturb it.
+It checks that the mock grants and data flows, that proxy code 91, a short reply and a bad version give `ECONNREFUSED`, `ECONNRESET` and `EPROTO`, and that a missing proxy fails closed.
+It also checks that loopback, UDP and `AF_UNIX` connections never reach the proxy, that non-loopback IPv6 gets `ENETUNREACH`, and that `O_NONBLOCK` and `FD_CLOEXEC` survive.
+The other three are shell scripts that count their own checks, not a unit test framework, and they need a running Tor.
+Their results are from one run with Tor up, on arm64.
+CI builds the library with `-Werror` on macOS, checks the interpose entry, checks that the hook logs an interception without Tor, and runs `make test-routing`.
+It does not run the Tor scripts.
 
 `make clients` builds the two test clients without Tor.
 
@@ -199,16 +203,17 @@ It does not run these scripts.
 <summary>Project layout</summary>
 
 ```text
-toralize.c          the interposed connect(), routing and proxy socket handling
-socks4.c            the SOCKS4 handshake, shared by the library and the test client
-toralize.h          proxy address, SOCKS4 constants, packed request and reply structs
-toralize            wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
-Makefile            builds toralize.dylib and the two test clients, runs the tests
-tests/              check_env.sh, test_socks4.sh, test_intercept.sh
-tests/test_socks4.c standalone SOCKS4 client, used by `make test-socks4`
-tests/test_http.c   plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
-.github/workflows/  build.yml, the macOS build and hook check
-LICENSE             MIT
+toralize.c            the interposed connect(), routing and proxy socket handling
+socks4.c              the SOCKS4 handshake, shared by the library and the test client
+toralize.h            proxy address, SOCKS4 constants, packed request and reply structs
+toralize              wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
+Makefile              builds toralize.dylib and the test programs, runs the tests
+tests/                check_env.sh, test_socks4.sh, test_intercept.sh
+tests/test_routing.c  routing table test with a mock SOCKS4 proxy, used by `make test-routing`
+tests/test_socks4.c   standalone SOCKS4 client, used by `make test-socks4`
+tests/test_http.c     plain HTTP client that connects to 1.1.1.1:80, used by `make test-intercept`
+.github/workflows/    build.yml, the macOS build and hook check
+LICENSE               MIT
 ```
 
 </details>

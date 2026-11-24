@@ -21,3 +21,4 @@
 # Test binaries
 tests/test_http
 tests/test_socks4
+tests/test_routing
