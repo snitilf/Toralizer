@@ -1,0 +1,62 @@
+{
+  "captured": "2026-11-24",
+  "host": {
+    "macos": "27.2.1",
+    "arch": "arm64",
+    "curl": "8.17.0",
+    "tor": "0.4.8.21",
+    "commit": "8aa8d58"
+  },
+  "scenes": [
+    {
+      "command": "/opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip",
+      "exit_code": 0,
+      "lines": [
+        {
+          "t_ms": 428,
+          "text": "{\"IsTor\":false,\"IP\":\"204.x.x.x\"}"
+        }
+      ]
+    },
+    {
+      "command": "./toralize /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip",
+      "exit_code": 0,
+      "lines": [
+        {
+          "t_ms": 51,
+          "text": "[toralize] intercepting connection to 116.202.120.181:443"
+        },
+        {
+          "t_ms": 51,
+          "text": "[toralize] connected to tor proxy at 127.0.0.1:9050"
+        },
+        {
+          "t_ms": 51,
+          "text": "[toralize] sent socks4 request"
+        },
+        {
+          "t_ms": 264,
+          "text": "[toralize] connection granted, routing through tor"
+        },
+        {
+          "t_ms": 930,
+          "text": "{\"IsTor\":true,\"IP\":\"45.84.107.100\"}"
+        }
+      ]
+    },
+    {
+      "command": "./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip",
+      "exit_code": 0,
+      "lines": [
+        {
+          "t_ms": 25,
+          "text": "[toralize] warning: /usr/bin/curl is protected by SIP, DYLD_INSERT_LIBRARIES is stripped and the connection will not be rerouted"
+        },
+        {
+          "t_ms": 432,
+          "text": "{\"IsTor\":false,\"IP\":\"204.x.x.x\"}"
+        }
+      ]
+    }
+  ]
+}
