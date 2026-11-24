@@ -1,194 +1,197 @@
+<div align="center">
+
 # Toralizer
 
-command-line tool that intercepts network traffic from other programs and routes it through Tor. the application doesn't need to know it's being proxied - everything happens transparently at the system level.
+### A `connect()` hook for macOS that sends IPv4 TCP through Tor.
 
-**quick start**: see `QUICKSTART.md` for 5-minute setup guide
+[Demo](#demo) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Limits](#limits) · [Tests](#tests)
 
-## how it works
+</div>
 
-uses the DYLD_INSERT_LIBRARIES technique on macOS (like LD_PRELOAD on Linux) to intercept connect() system calls and redirect them through Tor's SOCKS proxy.
+A macOS dynamic library in C that hooks `connect()` through a dyld interpose entry.
+It reroutes IPv4 TCP connections of command-line programs through Tor with a hand-written SOCKS4 handshake.
+It is injected with `DYLD_INSERT_LIBRARIES`, and the System Integrity Protection limit is documented.
 
-## prerequisites
+Read these three limits first:
 
-- macOS with Xcode Command Line Tools
-- Homebrew
-- Tor (installed via brew)
+- SIP strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
+  Use a Homebrew build or a program you compiled yourself.
+- IPv4 TCP only.
+  Non-loopback IPv6 TCP is refused, and UDP and Unix sockets are left alone.
+- SOCKS4 has no hostnames, so the program resolves them itself, outside Tor.
+  DNS lookups leak, and this is not a privacy tool.
 
-## installation
+The whole hook is `toralize.c`, under 200 lines.
+It needs a Tor daemon on `127.0.0.1:9050`.
 
-first, install dependencies:
+## Demo
 
-```bash
-brew install gcc make tor
-brew services start tor
+```text
+$ /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
+{"IsTor":false,"IP":"204.x.x.x"}
+
+$ ./toralize /opt/homebrew/opt/curl/bin/curl -4 -s https://check.torproject.org/api/ip
+[toralize] intercepting connection to 116.202.120.181:443
+[toralize] connected to tor proxy at 127.0.0.1:9050
+[toralize] sent socks4 request
+[toralize] connection granted, routing through tor
+{"IsTor":true,"IP":"147.90.235.22"}
+
+$ ./toralize /usr/bin/curl -4 -s https://check.torproject.org/api/ip
+{"IsTor":false,"IP":"204.x.x.x"}
 ```
 
-verify setup and build:
+The first run is the real address, masked here.
+The second run goes through Tor and comes out of an exit relay.
+The `[toralize]` lines are the hook logging to stderr.
+In the third run SIP removes the injected library from the system curl, so nothing is rerouted and the real address comes back.
 
-```bash
-# phase 0: verify prerequisites
-./tests/test_phase0.sh
+Run on arm64 with Homebrew curl 8.17.0.
 
-# phase 1: test socks4 protocol
-make phase1
+## How it works
 
-# phase 2: build and test dynamic library
-make phase2
+1. `./toralize` sets `DYLD_INSERT_LIBRARIES` to `toralize.dylib` and runs your command.
+   dyld loads the library into the process before `main`.
+2. The library has an entry in its `__interpose` section that pairs `toralize_connect` with `connect`.
+   dyld rebinds every call to `connect()` in the other loaded images to it.
+3. For a non-loopback IPv4 TCP address, `toralize_connect` opens a fresh socket to Tor at `127.0.0.1:9050`.
+   It sends a SOCKS4 CONNECT request: version 4, command 1, the destination port and address, and the user id `toralizer`.
+4. It reads the 8-byte reply and accepts only version 0 with code 90.
+5. It `dup2()`s the proxy socket onto the caller's file descriptor, then restores the caller's `O_NONBLOCK` and `FD_CLOEXEC`.
+   The program keeps using the descriptor it already had, which now talks to the destination through Tor.
+
+```text
+program                   toralize.dylib                     tor
+   |                            |                             |
+   | connect(fd, dst:443)       |                             |
+   |--------------------------->| socket() + __connect()      |
+   |                            |---------------------------->| 127.0.0.1:9050
+   |                            | 04 01 port ip "toralizer"   |
+   |                            |---------------------------->|
+   |                            | 00 5a ...                   |
+   |                            |<----------------------------|
+   |                            | dup2(proxy_fd, fd)          |
+   |<---------------------------| return 0                    |
+   | read/write(fd) ... carried through tor to dst:443        |
 ```
 
-or just build directly:
+Some details:
 
-```bash
-make
-```
+- The request and reply are packed structs in `toralize.h`, with no SOCKS library.
+- The replacement calls the raw `__connect` symbol from libsystem_kernel, both for the proxy socket and for connections it lets through, so it never re-enters itself.
+- Every failure path closes the proxy socket and sets `errno` before it returns `-1`.
+- The entry is visible in the built library:
 
-this compiles toralize.dylib which intercepts connect() calls.
+  ```text
+  $ nm -m toralize.dylib | grep __interpose
+  0000000000004080 (__DATA_CONST,__interpose) non-external __interpose_connect
+  ```
 
-## setup for command-line use
+What `connect()` does with each kind of destination:
 
-to use `curl` and other commands directly:
+| Destination | Result |
+| --- | --- |
+| IPv4 TCP, not loopback | Through Tor |
+| IPv4 loopback (`127.0.0.0/8`, `0.0.0.0`), `::1`, IPv4-mapped loopback | Direct, untouched |
+| IPv6 TCP, not loopback | Refused with `ENETUNREACH` |
+| UDP, `AF_UNIX`, any other family or socket type | Direct, untouched |
+| IPv4 TCP while Tor is not running | Fails with `ECONNREFUSED`, never goes direct |
 
-```bash
-# install and link homebrew curl
-brew install curl
-brew link --force curl
+IPv6 is refused instead of passed through so a dual-stack program cannot leave around Tor by accident.
+curl falls back to IPv4 on its own.
 
-# verify
-which curl  # should show /opt/homebrew/bin/curl
-```
+## Quick start
 
-**why?** system binaries (`/usr/bin/curl`) are protected by macOS sip and can't be intercepted.
+You need macOS with the Xcode Command Line Tools and [Homebrew](https://brew.sh).
+The library is built for the host architecture, and it has only been run on arm64.
 
-## usage
+1. Install Tor and a Homebrew curl, and start Tor:
 
-basic syntax:
+   ```sh
+   brew install tor curl
+   brew services start tor
+   ```
 
-```bash
-./toralize <command> [args...]
-```
+   Tor needs a moment to bootstrap before port 9050 works.
 
-quick examples:
+2. Build the library:
 
-```bash
-# check your IP through tor (after linking curl)
-./toralize curl http://httpbin.org/ip
+   ```sh
+   git clone https://github.com/snitilf/Toralizer.git
+   cd Toralizer
+   make
+   ```
 
-# run custom programs through tor
-./toralize ./test_http
+3. Run a program through it:
 
-# use example scripts (auto-detect homebrew curl)
-cd examples && ./check-ip.sh
-```
+   ```sh
+   ./toralize $(brew --prefix curl)/bin/curl -4 -s https://check.torproject.org/api/ip
+   ```
 
-for detailed usage guide with real-world examples, see:
-- **USAGE.md** - comprehensive guide with 10+ use cases
-- **examples/** - ready-to-run example scripts
+   The answer has `"IsTor":true`.
+   `-4` keeps curl on IPv4.
 
-quick tests:
+Other ways to run it:
 
-```bash
-# verify everything works
+```sh
+# your real address, then the one through Tor
 make test
 
-# or run example scripts
-cd examples
-./check-ip.sh
-./test-anonymity.sh
+# one of your own binaries, no Homebrew curl needed
+make test_http && ./toralize ./test_http
+
+# what the wrapper does
+DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
 ```
 
-## project structure
+If you see `[toralize] connect to proxy: Connection refused`, Tor is not listening.
+Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
-```
-toralize.h        - socks4 protocol definitions
-toralize.c        - connect() interception implementation
-toralize.dylib    - compiled dynamic library
-toralize          - wrapper script
-Makefile          - build configuration
-USAGE.md          - comprehensive usage guide
-PHASES.md         - implementation tracking
-examples/         - practical example scripts
-tests/            - test suites for all phases
-```
+## Limits
 
-## development
+- SIP removes `DYLD_*` from system binaries (`/usr/bin`, `/bin`, `/sbin`) and from anything started through one, such as `/bin/sh -c`.
+  Binaries with the hardened runtime also ignore the injected library.
+- Only `connect()` is hooked.
+  A program that connects with `connectx()` or Network.framework is not rerouted.
+- IPv4 TCP only.
+  IPv6 is refused as described above.
+- SOCKS4 without 4a, so hostnames are resolved by the program before `connect()` and the lookup leaves outside Tor.
+  Treat this as a demonstration of the hook, not a privacy tool.
+- Private and LAN IPv4 addresses go to Tor too, and Tor refuses them.
+- The user id is fixed, and Tor isolates streams by SOCKS user id.
+  All toralize traffic shares one circuit and one exit address, which some sites rate-limit.
+- Socket options set before `connect()` are lost, because the descriptor is replaced by the proxy socket.
+- The handshake is blocking and has no timeout, even for a non-blocking socket.
+- The host architecture only, with no universal binary.
 
-clean build artifacts:
+## Tests
 
-```bash
-make clean
-```
+| Script | Run with | Checks | Result |
+| --- | --- | --- | --- |
+| `tests/test_phase0.sh` | `./tests/test_phase0.sh` | Xcode tools, Homebrew, clang, make, Tor installed and listening, SOCKS proxy reachable, project files, wrapper executable | 16 passed, 0 failed |
+| `tests/test_phase1.sh` | `make phase1` | The standalone SOCKS4 client reaches 8.8.8.8:53, 1.1.1.1:53 and 1.1.1.1:80 through Tor | 3/3 |
+| `tests/test_phase2.sh` | `make phase2` | The library intercepts `test_http`, connects to the proxy, gets a granted reply, the HTTP request succeeds, and `/usr/bin/curl` is not intercepted under SIP | 6/6 |
 
-rebuild everything:
+The results are from one run with Tor up, on arm64.
+The tests are shell scripts that count their own checks, not a unit test framework.
+All three need a running Tor.
+CI builds the library on macOS and does not run them.
 
-```bash
-make clean && make
-```
+`make test_socks4` and `make test_http` build the two test clients without Tor.
 
-## security notes
+## Project layout
 
-- only routes TCP connections through Tor
-- DNS requests may still leak (use Tor Browser for complete anonymity)
-- some applications might not work correctly
-- for educational and legitimate privacy purposes only
-
-## important limitations
-
-macOS system integrity protection (sip) prevents DYLD_INSERT_LIBRARIES from working with system binaries like /usr/bin/curl, /usr/bin/ssh, etc.
-
-toralizer works with:
-- custom-compiled applications
-- user-installed binaries (via homebrew in /opt/homebrew or /usr/local)
-- scripts and programs you build yourself
-
-toralizer does NOT work with:
-- system binaries in /usr/bin, /bin, /sbin
-- any binary protected by sip
-
-to use with homebrew-installed tools:
-```bash
-# install a non-system version
-brew install curl
-
-# example scripts automatically detect it
-cd examples
-./check-ip.sh
+```text
+toralize.c         the interposed connect() and the SOCKS4 handshake
+toralize.h         proxy address, SOCKS4 constants, packed request and reply structs
+toralize           wrapper that sets DYLD_INSERT_LIBRARIES and execs your command
+Makefile           builds toralize.dylib and the two test clients, runs the tests
+test_socks4.c      standalone SOCKS4 client, used by phase 1
+test_http.c        plain HTTP client that connects to 1.1.1.1:80, used by phase 2
+tests/             test_phase0.sh, test_phase1.sh, test_phase2.sh
+LICENSE            MIT
 ```
 
-## technical details
+## License
 
-SOCKS4 protocol flow:
-1. connect to Tor proxy at 127.0.0.1:9050
-2. send connection request with destination IP/port
-3. receive response (code 90 means granted)
-4. use dup2() to replace original socket with Tor-connected socket
-
-macOS specifics:
-- uses DYLD_INSERT_LIBRARIES environment variable
-- compiled as .dylib (dynamic library)
-- uses dlsym(RTLD_NEXT, "connect") to get the original function pointer
-
-## troubleshooting
-
-library not found:
-```bash
-make
-```
-
-tor not running:
-```bash
-brew services start tor
-```
-
-check if tor is listening:
-```bash
-lsof -i :9050
-```
-
-## license
-
-MIT
-
-## author
-
-filip snítil
-
+Toralizer is released under the [MIT License](LICENSE).
