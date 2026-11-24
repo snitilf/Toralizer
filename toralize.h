@@ -1,5 +1,5 @@
 // toralize.h
-// 
+//
 // header file for Toralizer - tool to route network traffic through Tor
 // uses DYLD_INSERT_LIBRARIES on macOS to intercept connect() calls
 
@@ -21,8 +21,8 @@
 #define PROXYPORT 9050
 
 // socks4 protocol constants
-#define CONNECT 1
-#define GRANTED 90
+#define SOCKS4_CONNECT 1
+#define SOCKS4_GRANTED 90
 
 // username for socks4 (can be empty)
 #define USERNAME "toralizer"
@@ -40,10 +40,10 @@ typedef struct {
 // socks4 response structure
 // received from tor proxy after connection request
 typedef struct {
-    unsigned char vn;       // reply version (0)
-    unsigned char cd;       // reply code (90 = granted)
-    unsigned short _;       // ignored
-    unsigned int __;        // ignored
+    unsigned char vn;              // reply version (0)
+    unsigned char cd;              // reply code (90 = granted)
+    unsigned short dstport_unused; // ignored
+    unsigned int dstip_unused;     // ignored
 } __attribute__((packed)) socks4_response_t;
 
 #endif // TORALIZE_H
