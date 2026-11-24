@@ -14,5 +14,20 @@ if [ ! -f "$lib" ]; then
     exit 1
 fi
 
+# macOS strips DYLD_INSERT_LIBRARIES for SIP-protected programs, so warn and still run it
+prog=$(command -v -- "$1" || true)
+if [ -n "$prog" ]; then
+    case "$prog" in
+        /usr/bin/*|/bin/*|/sbin/*|/usr/sbin/*|/System/*) protected=1 ;;
+        *) protected=0 ;;
+    esac
+    if [ "$protected" = 0 ] && ls -lOL "$prog" 2>/dev/null | grep -qw restricted; then
+        protected=1
+    fi
+    if [ "$protected" = 1 ]; then
+        echo "[toralize] warning: $prog is protected by SIP, DYLD_INSERT_LIBRARIES is stripped and the connection will not be rerouted" >&2
+    fi
+fi
+
 export DYLD_INSERT_LIBRARIES="$lib${DYLD_INSERT_LIBRARIES:+:$DYLD_INSERT_LIBRARIES}"
 exec "$@"
