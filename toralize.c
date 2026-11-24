@@ -75,39 +75,7 @@ static int connect_via_tor(int sockfd, uint32_t dstip, uint16_t dstport) {
     }
     fprintf(stderr, "[toralize] connected to tor proxy at %s:%d\n", PROXY, PROXYPORT);
 
-    // socks4 request: fixed header followed by the null-terminated user id
-    unsigned char buf[sizeof(socks4_request_t) + sizeof(USERNAME)];
-    socks4_request_t req = { .vn = 4, .cd = SOCKS4_CONNECT, .dstport = dstport, .dstip = dstip };
-    memcpy(buf, &req, sizeof(req));
-    memcpy(buf + sizeof(req), USERNAME, sizeof(USERNAME));
-    ssize_t sent = send(proxy_fd, buf, sizeof(buf), 0);
-    if (sent != (ssize_t)sizeof(buf)) {
-        if (sent >= 0) {
-            errno = EIO;
-        }
-        toralize_perror("send request");
-        return fail(proxy_fd);
-    }
-    fprintf(stderr, "[toralize] sent socks4 request\n");
-
-    // the reply is 8 bytes, MSG_WAITALL keeps a split reply from looking short
-    socks4_response_t resp;
-    ssize_t n = recv(proxy_fd, &resp, sizeof(resp), MSG_WAITALL);
-    if (n != (ssize_t)sizeof(resp)) {
-        if (n >= 0) {
-            errno = ECONNRESET;
-        }
-        fprintf(stderr, "[toralize] error: no socks4 reply from tor proxy\n");
-        return fail(proxy_fd);
-    }
-    if (resp.vn != 0) {
-        fprintf(stderr, "[toralize] error: bad socks4 reply version %d\n", resp.vn);
-        errno = EPROTO;
-        return fail(proxy_fd);
-    }
-    if (resp.cd != SOCKS4_GRANTED) {
-        fprintf(stderr, "[toralize] error: tor proxy denied connection (code %d)\n", resp.cd);
-        errno = ECONNREFUSED;
+    if (socks4_handshake(proxy_fd, dstip, dstport) < 0) {
         return fail(proxy_fd);
     }
     fprintf(stderr, "[toralize] connection granted, routing through tor\n");
