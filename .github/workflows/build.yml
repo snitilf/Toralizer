@@ -18,7 +18,7 @@ jobs:
         run: make EXTRA_CFLAGS=-Werror
 
       - name: Build the test clients
-        run: make EXTRA_CFLAGS=-Werror test_socks4 test_http
+        run: make EXTRA_CFLAGS=-Werror clients
 
       - name: Check the interpose entry
         run: nm -m toralize.dylib | grep -E '\(__DATA(_CONST)?,__interpose\)'

@@ -25,7 +25,7 @@ fi
 # check if test_http exists
 if [ ! -f "./test_http" ]; then
     echo -e "${RED}error: test_http not found${NC}"
-    echo "run: make test_http"
+    echo "run: make clients"
     exit 1
 fi
 

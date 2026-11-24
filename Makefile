@@ -54,6 +54,9 @@ $(TEST_HTTP): $(TEST_HTTP_SOURCES)
 	@echo "  ./$(TEST_HTTP)                   # direct connection"
 	@echo "  ./toralize ./$(TEST_HTTP)        # through tor"
 
+# build both test clients
+clients: $(TEST_CLIENT) $(TEST_HTTP)
+
 # check build and run prerequisites (needs tor listening on 9050)
 check-env:
 	@./tests/check_env.sh
@@ -90,5 +93,5 @@ test: $(TARGET)
 	@echo "your ip through tor:"
 	@./toralize "$(BREW_CURL)" -4 -s -w "\n" $(TEST_URL)
 
-.PHONY: all clean test check-env test-socks4 test-intercept
+.PHONY: all clients clean test check-env test-socks4 test-intercept
 
