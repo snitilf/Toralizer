@@ -147,7 +147,7 @@ Other ways to run it:
 
 ```sh
 # your real address, then the one through Tor
-make test
+make demo
 
 # one of your own binaries, no Homebrew curl needed
 make clients && ./toralize ./tests/test_http
@@ -197,6 +197,7 @@ Their results are from one run with Tor up, on arm64.
 CI builds the library with `-Werror` on macOS, checks the interpose entry, checks that the hook logs an interception without Tor, and runs `make test-routing`.
 It does not run the Tor scripts.
 
+`make test` runs `test-routing`, then the three Tor scripts in the order of the table, and stops at the first failure.
 `make clients` builds the two test clients without Tor.
 
 <details>
