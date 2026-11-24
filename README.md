@@ -12,8 +12,10 @@
 </div>
 
 Toralizer is a macOS dynamic library in C that hooks `connect()` through a dyld interpose entry.
-It reroutes the IPv4 TCP connections of a command-line program through Tor, using a SOCKS4 handshake written by hand.
-You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled or changed.
+dyld is the macOS dynamic linker, and an interpose entry tells it to swap one function for another.
+The library reroutes the IPv4 TCP connections of command-line programs through Tor with a hand-written SOCKS4 handshake.
+SOCKS4 is a simple proxy protocol that Tor accepts.
+You inject the library with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled or changed.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/demo/demo-dark.svg">
@@ -23,30 +25,31 @@ You inject it with `DYLD_INSERT_LIBRARIES`, so the program is never recompiled o
 
 Captured with `docs/demo/record.py` on macOS 27.2.1 (arm64), with the real address masked.
 
-Three limits come first:
+Read these limits first:
 
-- System Integrity Protection (SIP) strips `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
-  Use a Homebrew build or a program you compiled yourself.
-  The wrapper prints a warning for such a program and still runs it.
-- IPv4 TCP only.
-  Non-loopback IPv6 TCP is refused, and UDP and Unix sockets are left alone.
+- System Integrity Protection (SIP) removes `DYLD_*` variables from system binaries, so `/usr/bin/curl` is not rerouted.
+  Use a Homebrew build or a program that you compiled yourself.
+  For a protected program, the wrapper prints a warning and still runs it.
+- Only IPv4 TCP is rerouted.
+  The library refuses non-loopback IPv6 TCP and leaves UDP and Unix sockets alone.
 - SOCKS4 has no hostnames, so the program resolves them itself, outside Tor.
-  DNS lookups leak, and this is not a privacy tool.
+  DNS lookups are not proxied, so this is not a privacy tool.
 
 The hook is `toralize.c` and `socks4.c`, about 200 lines together.
-It needs a Tor daemon on `127.0.0.1:9050`.
+It needs Tor to run on `127.0.0.1:9050`.
 
 ## How it works
 
 1. `./toralize` puts `toralize.dylib` in front of any existing `DYLD_INSERT_LIBRARIES` and runs your command.
    dyld loads the library into the process before `main`.
-2. The library has an entry in its `__interpose` section that pairs `toralize_connect` with `connect`.
-   dyld rebinds every call to `connect()` in the other loaded images to it.
-3. For a non-loopback IPv4 TCP address, `toralize_connect` opens a fresh socket to Tor at `127.0.0.1:9050`.
+2. The `__interpose` section of the library pairs `toralize_connect` with `connect`.
+   dyld rebinds every call to `connect()` in the other loaded images to `toralize_connect`.
+3. For a non-loopback IPv4 TCP address, `toralize_connect` opens a new blocking socket to Tor at `127.0.0.1:9050`.
    It sends a SOCKS4 CONNECT request: version 4, command 1, the destination port and address, and the user id `toralizer`.
+   The socket blocks, so the handshake also works when the caller uses a non-blocking socket.
 4. It reads the 8-byte reply and accepts only version 0 with code 90.
-5. It `dup2()`s the proxy socket onto the caller's file descriptor, then restores the caller's `O_NONBLOCK` and `FD_CLOEXEC`.
-   The program keeps using the descriptor it already had, which now talks to the destination through Tor.
+5. It calls `dup2()` to put the proxy socket on the descriptor of the caller, then restores `O_NONBLOCK` and `FD_CLOEXEC`.
+   The program keeps its descriptor, and the descriptor now reaches the destination through Tor.
 
 ```text
 program                   toralize.dylib                     tor
@@ -63,7 +66,7 @@ program                   toralize.dylib                     tor
    | read/write(fd) ... carried through tor to dst:443        |
 ```
 
-What `connect()` does with each kind of destination:
+The table shows what `connect()` does with each kind of destination:
 
 | Destination | Result |
 | --- | --- |
@@ -73,13 +76,11 @@ What `connect()` does with each kind of destination:
 | UDP, `AF_UNIX`, any other family or socket type | Direct, untouched |
 | IPv4 TCP while Tor is not running | Fails with `ECONNREFUSED`, never goes direct |
 
-IPv6 is refused instead of passed through so a dual-stack program cannot leave around Tor by accident.
-curl falls back to IPv4 on its own.
+The library refuses IPv6 so that a dual-stack program cannot bypass Tor by accident, and curl falls back to IPv4 on its own.
 
-## Under the hood
+## Internals
 
-- Interpose: dyld applies the `__interpose` entry to every loaded image except the library itself.
-  The entry is visible in the built library:
+- Interpose: the entry is visible in the built library.
 
   ```text
   $ nm -m toralize.dylib | grep __interpose
@@ -87,21 +88,18 @@ curl falls back to IPv4 on its own.
   ```
 
 - Protocol: the SOCKS4 request and reply are packed structs in `toralize.h`, with no SOCKS library.
-  The request is an 8-byte header and the user id `toralizer`, sent in one write.
-  `socks4_handshake()` in `socks4.c` runs it, and the test client calls the same function.
-- Raw connect: the hook calls the `__connect` stub from libsystem_kernel, for the proxy socket and for the connections it lets through.
+  `socks4_handshake()` in `socks4.c` sends the request in one write, and the test client calls the same function.
+- Raw connect: the hook calls the `__connect` stub from libsystem_kernel for the proxy socket and for the connections that it passes through.
   No other interposer in the process sees them.
-- Proxy socket: each connection gets a fresh blocking socket, so the handshake works even when the caller's socket is non-blocking.
-- Reply: it reads all 8 bytes with `MSG_WAITALL` and accepts only version 0 with code 90.
-- Flags: after `dup2()` it puts back the caller's status flags (`O_NONBLOCK`) and descriptor flags (`FD_CLOEXEC`).
-- Errors: every failure between opening the proxy socket and `dup2()` closes that socket, sets `errno` and returns `-1`.
-  A failed `socket()` or a failed read of the caller's flags returns `-1` before there is a proxy socket to close.
-  If restoring the flags fails after `dup2()`, the call returns `-1`, but the descriptor already is the Tor socket and stays open.
+- Errors: a failure after the proxy socket opens and before `dup2()` closes that socket, sets `errno`, and returns `-1`.
+  If `socket()` fails or the hook cannot read the flags of the caller, it returns `-1` before a proxy socket exists.
+  If the flag restore fails after `dup2()`, the call returns `-1`, but the descriptor already is the Tor socket and stays open.
 
 ## Quick start
 
 You need macOS with the Xcode Command Line Tools and [Homebrew](https://brew.sh).
-The library is built for the host architecture, and it has only been run on arm64.
+The library builds for the host architecture.
+It was run only on arm64.
 
 1. Install Tor and a Homebrew curl, and start Tor:
 
@@ -110,7 +108,7 @@ The library is built for the host architecture, and it has only been run on arm6
    brew services start tor
    ```
 
-   Tor needs a moment to bootstrap before port 9050 works.
+   Port 9050 works after Tor finishes its startup, which takes a moment.
 
 2. Build the library:
 
@@ -126,8 +124,8 @@ The library is built for the host architecture, and it has only been run on arm6
    ./toralize $(brew --prefix curl)/bin/curl -4 -s https://check.torproject.org/api/ip
    ```
 
-   The answer has `"IsTor":true`.
-   `-4` keeps curl on IPv4.
+   The answer contains `"IsTor":true`.
+   The `-4` flag keeps curl on IPv4.
 
 Other ways to run it:
 
@@ -139,45 +137,51 @@ make clients && ./toralize ./tests/test_http
 DYLD_INSERT_LIBRARIES="$PWD/toralize.dylib" ./your-program
 ```
 
-Set `TORALIZE_QUIET=1` to silence the informational `[toralize]` lines.
-Errors and refusals still print to stderr.
+Two environment variables change the behavior:
 
-Set `TORALIZE_PROXY_PORT` to reach Tor on another port of `127.0.0.1`, for example `9150` for Tor Browser.
-A value that is not a port number makes the connection fail with `EINVAL`.
+- `TORALIZE_QUIET=1` hides the informational `[toralize]` lines.
+  Errors and refusals still print to stderr.
+- `TORALIZE_PROXY_PORT` selects another port of `127.0.0.1` for Tor, for example `9150` for Tor Browser.
+  A value that is not a port number makes the connection fail with `EINVAL`.
 
 If you see `[toralize] connect to proxy: Connection refused`, Tor is not listening.
-Check with `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
+To see what listens on port 9050, run `lsof -nP -iTCP:9050 -sTCP:LISTEN`.
 
 ## Limits
 
-Besides the three above:
+Besides the three limits above:
 
-- The injected library is also dropped for anything started through a system binary, such as `/bin/sh -c`, and for binaries with the hardened runtime.
+- A program that a system binary starts, such as `/bin/sh -c`, loses the library.
+  A binary with the hardened runtime (a macOS code-signing option) loses it too.
 - Only `connect()` is hooked.
   A program that connects with `connectx()` or Network.framework is not rerouted.
 - Private and LAN IPv4 addresses go to Tor too, and Tor refuses them.
 - The user id is fixed, and Tor isolates streams by SOCKS user id.
-  Until Tor rotates the circuit, all toralize traffic leaves from one exit address, which some sites rate-limit.
-- Socket options set before `connect()` are lost, because the descriptor is replaced by the proxy socket.
-- The handshake is blocking and has no timeout, even for a non-blocking socket.
-- The host architecture only, with no universal binary.
+  Until Tor rotates the circuit, all toralize traffic leaves from one exit address, and some sites rate-limit that address.
+- Socket options that a program sets before `connect()` are lost, because the proxy socket replaces the descriptor.
+- The handshake blocks and has no timeout, even for a non-blocking socket.
+- The library supports the host architecture only, with no universal binary.
 
 ## Tests
 
-| Test | Run with | Needs Tor | Checks | Result |
+| Test | Run with | Needs Tor | What it tests | Result |
 | --- | --- | --- | --- | --- |
 | `tests/test_routing.c` | `make test-routing` | no | Every row of the routing table, against a mock SOCKS4 proxy | 16/16 |
 | `tests/check_env.sh` | `make check-env` | yes | Preflight: clang, make, Tor installed and listening, Homebrew curl | ready |
 | `tests/test_socks4.sh` | `make test-socks4` | yes | SOCKS4 client gets a grant for 3 destinations | 3/3 |
 | `tests/test_intercept.sh` | `make test-intercept` | yes | Hook fires, Tor grants, HTTP works, Homebrew curl exits through Tor, system curl stays direct with a warning | 9/9 |
 
-`test_routing` is a C program that the wrapper injects the library into.
-It plays Tor with a small mock proxy on a free local port, selected with `TORALIZE_PROXY_PORT`, so it needs no Tor and no network and a running Tor does not disturb it.
-It checks that the mock grants and data flows, that proxy code 91, a short reply and a bad version give `ECONNREFUSED`, `ECONNRESET` and `EPROTO`, and that a missing proxy fails closed.
-It also checks that loopback, UDP and `AF_UNIX` connections never reach the proxy, that non-loopback IPv6 gets `ENETUNREACH`, and that `O_NONBLOCK` and `FD_CLOEXEC` survive.
-The other three are shell scripts that count their own checks, not a unit test framework, and they need a running Tor.
-Their results are from one run with Tor up, on arm64.
-CI builds the library with `-Werror` on macOS, checks the interpose entry, checks that the hook logs an interception without Tor, runs `make test-routing`, and checks that the demo SVGs match `docs/demo/session.json`.
+`test_routing` is a C program that runs under `./toralize`.
+It starts a mock SOCKS4 proxy on a free local port and points the library to it with `TORALIZE_PROXY_PORT`, so it needs no Tor and no network.
+It makes sure that a grant works and data flows, and that proxy code 91, a short reply, and a bad version give `ECONNREFUSED`, `ECONNRESET`, and `EPROTO`.
+It also makes sure that a missing proxy fails closed and that non-loopback IPv6 gets `ENETUNREACH`.
+Loopback, UDP, and `AF_UNIX` connections never reach the proxy, and `O_NONBLOCK` and `FD_CLOEXEC` survive.
+
+The other three tests are shell scripts that count their own results, and they need a running Tor.
+Their results come from one run on arm64 with Tor up.
+
+CI on macOS builds the library with `-Werror` and runs `make test-routing`.
+It makes sure that the interpose entry exists, that the hook logs an interception without Tor, and that the demo SVGs match `docs/demo/session.json`.
 It does not run the Tor scripts.
 
 `make test` runs `test-routing`, then the three Tor scripts in the order of the table, and stops at the first failure.
